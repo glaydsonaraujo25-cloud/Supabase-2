@@ -5,26 +5,46 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
+  Download,
   Filter,
+  KeyRound,
   LogOut,
   Plus,
+  Printer,
   RefreshCw,
   ShieldCheck,
   UserRound,
   Users,
 } from 'lucide-react'
-import { supabase } from './lib/supabase'
+import { siteUrl, supabase } from './lib/supabase'
 
 type Profile = { id: string; full_name: string; role: 'admin' | 'usuario'; soldier_id: string | null }
 type Soldier = { id: string; full_name: string; rank: string; war_name: string | null; organization: string | null; active: boolean }
 type ServiceType = { id: string; name: string; description: string | null; default_start: string | null; default_end: string | null }
 type Shift = {
-  id: string; soldier_id: string; service_type_id: string; service_date: string; start_time: string; end_time: string
-  status: string; notes: string | null
+  id: string
+  soldier_id: string
+  service_type_id: string
+  service_date: string
+  start_time: string
+  end_time: string
+  status: string
+  notes: string | null
   soldiers: { full_name: string; rank: string; war_name: string | null } | null
   service_types: { name: string } | null
 }
-type SwapRequest = { id: string; shift_id: string; requester_id: string; target_soldier_id: string | null; reason: string; status: string; admin_note: string | null; created_at: string }
+type SwapRequest = {
+  id: string
+  shift_id: string
+  requester_id: string
+  target_soldier_id: string | null
+  reason: string
+  status: string
+  admin_note: string | null
+  created_at: string
+  target_accepted: boolean | null
+  target_responded_at: string | null
+}
 type Unavailability = { id: string; soldier_id: string; type: string; start_date: string; end_date: string; reason: string | null }
 type Tab = 'dashboard' | 'escala' | 'militares' | 'servicos' | 'impedimentos' | 'trocas'
 
@@ -49,33 +69,48 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [recoveryMode, setRecoveryMode] = useState(new URLSearchParams(window.location.search).get('reset') === '1')
   const isAdmin = profile?.role === 'admin'
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setLoading(false) })
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const params = new URLSearchParams(window.location.search)
+    const errorDescription = params.get('error_description')
+    if (errorDescription) setMessage(decodeURIComponent(errorDescription.replace(/\+/g, ' ')))
+    else if (params.get('confirmed') === '1') setMessage('E-mail confirmado com sucesso. Você já pode entrar no sistema.')
+
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setLoading(false)
+    })
+
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession)
+      if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true)
       if (!nextSession) setProfile(null)
     })
+
     return () => data.subscription.unsubscribe()
   }, [])
 
-  useEffect(() => { if (session?.user.id) void loadData() }, [session?.user.id])
+  useEffect(() => { if (session?.user.id && !recoveryMode) void loadData() }, [session?.user.id, recoveryMode])
 
   async function loadData() {
     if (!session?.user.id) return
     setLoading(true)
-    setMessage('')
     const { data: myProfile, error: profileError } = await supabase.from('profiles').select('id, full_name, role, soldier_id').eq('id', session.user.id).single()
-    if (profileError) { setMessage(`Não foi possível carregar o perfil: ${profileError.message}`); setLoading(false); return }
+    if (profileError) {
+      setMessage(`Não foi possível carregar o perfil: ${profileError.message}`)
+      setLoading(false)
+      return
+    }
+
     const typedProfile = myProfile as Profile
     setProfile(typedProfile)
-
     const [soldierResult, serviceResult, shiftResult, swapResult, unavailableResult] = await Promise.all([
       supabase.from('soldiers').select('id, full_name, rank, war_name, organization, active').order('rank').order('full_name'),
       supabase.from('service_types').select('id, name, description, default_start, default_end').eq('active', true).order('name'),
       supabase.from('shifts').select('id, soldier_id, service_type_id, service_date, start_time, end_time, status, notes, soldiers(full_name, rank, war_name), service_types(name)').order('service_date').order('start_time'),
-      supabase.from('swap_requests').select('id, shift_id, requester_id, target_soldier_id, reason, status, admin_note, created_at').order('created_at', { ascending: false }),
+      supabase.from('swap_requests').select('id, shift_id, requester_id, target_soldier_id, reason, status, admin_note, created_at, target_accepted, target_responded_at').order('created_at', { ascending: false }),
       supabase.from('unavailabilities').select('id, soldier_id, type, start_date, end_date, reason').order('start_date'),
     ])
 
@@ -84,6 +119,7 @@ export default function App() {
     if (shiftResult.data) setShifts(shiftResult.data as unknown as Shift[])
     if (swapResult.data) setSwaps(swapResult.data as SwapRequest[])
     if (unavailableResult.data) setUnavailabilities(unavailableResult.data as Unavailability[])
+
     if (typedProfile.role === 'admin') {
       const { data } = await supabase.from('profiles').select('id, full_name, role, soldier_id').order('full_name')
       if (data) setProfiles(data as Profile[])
@@ -97,45 +133,94 @@ export default function App() {
   const upcoming = useMemo(() => shifts.filter((s) => s.service_date >= today && s.status !== 'cancelado'), [shifts, today])
   const myShifts = useMemo(() => shifts.filter((s) => profile?.soldier_id && s.soldier_id === profile.soldier_id), [shifts, profile?.soldier_id])
 
+  if (recoveryMode && session) return <ResetPasswordScreen onDone={() => { setRecoveryMode(false); window.history.replaceState({}, '', '/') }} />
   if (loading && !session) return <LoadingScreen />
-  if (!session) return <AuthScreen />
+  if (!session) return <AuthScreen initialMessage={message} />
 
   return <div className="app-shell">
-    <aside className="sidebar">
+    <aside className="sidebar no-print">
       <div className="brand"><div className="brand-icon"><ShieldCheck size={24} /></div><div><strong>Escala de Serviço</strong><span>Gestão administrativa</span></div></div>
       <nav>{tabs.map((item) => <button key={item.id} className={tab === item.id ? 'nav-button active' : 'nav-button'} onClick={() => setTab(item.id)}>{item.label}</button>)}</nav>
       <div className="sidebar-footer"><div className="account-card"><UserRound size={18} /><div><strong>{profile?.full_name || session.user.email}</strong><span>{isAdmin ? 'Administrador' : 'Usuário'}</span></div></div><button className="ghost-button" onClick={signOut}><LogOut size={17} /> Sair</button></div>
     </aside>
     <main>
-      <header className="topbar"><div><p className="eyebrow">Sistema de escala</p><h1>{tabs.find((item) => item.id === tab)?.label}</h1></div><button className="secondary-button" onClick={() => void loadData()}><RefreshCw size={16} /> Atualizar</button></header>
-      {message && <div className="notice">{message}</div>}
+      <header className="topbar no-print"><div><p className="eyebrow">Sistema de escala</p><h1>{tabs.find((item) => item.id === tab)?.label}</h1></div><button className="secondary-button" onClick={() => void loadData()}><RefreshCw size={16} /> Atualizar</button></header>
+      {message && <div className="notice no-print">{message}</div>}
       {loading ? <LoadingBlock /> : <>
         {tab === 'dashboard' && <Dashboard upcoming={upcoming} myShifts={myShifts} soldiers={soldiers} swaps={swaps} unavailabilities={unavailabilities} shifts={shifts} isAdmin={isAdmin} />}
         {tab === 'escala' && <SchedulePanel shifts={shifts} soldiers={soldiers} services={services} unavailabilities={unavailabilities} isAdmin={isAdmin} mySoldierId={profile?.soldier_id ?? null} onChanged={loadData} />}
         {tab === 'militares' && <SoldiersPanel soldiers={soldiers} profiles={profiles} shifts={shifts} isAdmin={isAdmin} onChanged={loadData} />}
         {tab === 'servicos' && <ServicesPanel services={services} isAdmin={isAdmin} onChanged={loadData} />}
         {tab === 'impedimentos' && <UnavailabilityPanel items={unavailabilities} soldiers={soldiers} isAdmin={isAdmin} mySoldierId={profile?.soldier_id ?? null} onChanged={loadData} />}
-        {tab === 'trocas' && <SwapsPanel swaps={swaps} shifts={shifts} soldiers={soldiers} isAdmin={isAdmin} mySoldierId={profile?.soldier_id ?? null} onChanged={loadData} />}
+        {tab === 'trocas' && <SwapsPanel swaps={swaps} shifts={shifts} soldiers={soldiers} profile={profile} isAdmin={isAdmin} onChanged={loadData} />}
       </>}
     </main>
   </div>
 }
 
-function AuthScreen() {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [fullName, setFullName] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false); const [feedback, setFeedback] = useState('')
+function AuthScreen({ initialMessage }: { initialMessage?: string }) {
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [feedback, setFeedback] = useState(initialMessage || '')
+
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setFeedback('')
     if (mode === 'register') {
-      const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } })
-      setFeedback(error ? error.message : 'Cadastro realizado. Verifique seu e-mail para confirmar a conta.')
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName }, emailRedirectTo: `${siteUrl}/?confirmed=1` },
+      })
+      setFeedback(error ? error.message : 'Cadastro realizado. Enviamos um link de confirmação para o seu e-mail.')
+    } else if (mode === 'forgot') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${siteUrl}/?reset=1` })
+      setFeedback(error ? error.message : 'Enviamos o link de redefinição de senha para o seu e-mail.')
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password }); if (error) setFeedback(error.message)
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) setFeedback(error.message)
     }
     setBusy(false)
   }
-  return <div className="auth-page"><div className="auth-hero"><div className="hero-badge"><ShieldCheck size={18} /> Controle de acesso com Supabase</div><h1>Escalas organizadas, consulta rápida e histórico em um só lugar.</h1><p>Gestão administrativa de equipes, serviços, impedimentos e trocas com validação automática de conflitos.</p><div className="feature-list"><span>Escala centralizada</span><span>Impedimentos</span><span>Pedidos de troca</span><span>Perfis de acesso</span></div></div><form className="auth-card" onSubmit={submit}><div><p className="eyebrow">Acesso</p><h2>{mode === 'login' ? 'Entrar no sistema' : 'Criar sua conta'}</h2></div>{mode === 'register' && <label>Nome completo<input value={fullName} onChange={(e) => setFullName(e.target.value)} required /></label>}<label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label><label>Senha<input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></label>{feedback && <div className="notice">{feedback}</div>}<button className="primary-button" disabled={busy}>{busy ? 'Processando...' : mode === 'login' ? 'Entrar' : 'Cadastrar'}</button><button type="button" className="link-button" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setFeedback('') }}>{mode === 'login' ? 'Ainda não tenho conta' : 'Já tenho uma conta'}</button></form></div>
+
+  return <div className="auth-page">
+    <div className="auth-hero"><div className="hero-badge"><ShieldCheck size={18} /> Controle de acesso com Supabase</div><h1>Escalas organizadas, consulta rápida e histórico em um só lugar.</h1><p>Gestão administrativa de equipes, serviços, impedimentos e trocas com validação automática de conflitos.</p><div className="feature-list"><span>Escala centralizada</span><span>Impedimentos</span><span>Trocas aprovadas</span><span>Perfis de acesso</span></div></div>
+    <form className="auth-card" onSubmit={submit}>
+      <div><p className="eyebrow">Acesso</p><h2>{mode === 'login' ? 'Entrar no sistema' : mode === 'register' ? 'Criar sua conta' : 'Redefinir senha'}</h2></div>
+      {mode === 'register' && <label>Nome completo<input value={fullName} onChange={(e) => setFullName(e.target.value)} required /></label>}
+      <label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
+      {mode !== 'forgot' && <label>Senha<input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></label>}
+      {feedback && <div className="notice">{feedback}</div>}
+      <button className="primary-button" disabled={busy}>{busy ? 'Processando...' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Cadastrar' : 'Enviar link'}</button>
+      {mode === 'login' && <button type="button" className="link-button" onClick={() => { setMode('forgot'); setFeedback('') }}><KeyRound size={15} /> Esqueci minha senha</button>}
+      <button type="button" className="link-button" onClick={() => { setMode(mode === 'register' ? 'login' : mode === 'forgot' ? 'login' : 'register'); setFeedback('') }}>{mode === 'login' ? 'Ainda não tenho conta' : 'Voltar para o login'}</button>
+    </form>
+  </div>
+}
+
+function ResetPasswordScreen({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [feedback, setFeedback] = useState('')
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (password !== confirmPassword) return setFeedback('As senhas não coincidem.')
+    setBusy(true); setFeedback('')
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) setFeedback(error.message)
+    else {
+      await supabase.auth.signOut()
+      alert('Senha alterada com sucesso. Entre novamente com a nova senha.')
+      onDone()
+    }
+    setBusy(false)
+  }
+
+  return <div className="auth-page"><div className="auth-hero"><div className="hero-badge"><KeyRound size={18} /> Recuperação de conta</div><h1>Defina uma nova senha.</h1><p>Escolha uma senha com pelo menos 8 caracteres e mantenha seus dados de acesso protegidos.</p></div><form className="auth-card" onSubmit={submit}><div><p className="eyebrow">Nova senha</p><h2>Atualizar acesso</h2></div><label>Nova senha<input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></label><label>Confirmar nova senha<input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /></label>{feedback && <div className="notice">{feedback}</div>}<button className="primary-button" disabled={busy}>{busy ? 'Atualizando...' : 'Salvar nova senha'}</button></form></div>
 }
 
 function Dashboard({ upcoming, myShifts, soldiers, swaps, unavailabilities, shifts, isAdmin }: { upcoming: Shift[]; myShifts: Shift[]; soldiers: Soldier[]; swaps: SwapRequest[]; unavailabilities: Unavailability[]; shifts: Shift[]; isAdmin: boolean }) {
@@ -170,10 +255,28 @@ function SchedulePanel({ shifts, soldiers, services, unavailabilities, isAdmin, 
     if (error) return alert(error.message)
     setDate(''); setNotes(''); await onChanged()
   }
-  function changeService(id: string) { setServiceId(id); const item = services.find((s) => s.id === id); if (item?.default_start) setStart(item.default_start.slice(0, 5)); if (item?.default_end) setEnd(item.default_end.slice(0, 5)) }
 
-  return <section className="content-stack">{isAdmin && <form className="panel form-grid" onSubmit={createShift}><div className="panel-heading full"><div><p className="eyebrow">Nova escala</p><h2>Adicionar serviço</h2></div></div><label>Militar<select value={soldierId} onChange={(e) => setSoldierId(e.target.value)} required><option value="">Selecione</option>{soldiers.filter((s) => s.active).map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label><label>Serviço<select value={serviceId} onChange={(e) => changeService(e.target.value)} required><option value="">Selecione</option>{services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Data<input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label><label>Início<input type="time" value={start} onChange={(e) => setStart(e.target.value)} required /></label><label>Fim<input type="time" value={end} onChange={(e) => setEnd(e.target.value)} required /></label><label className="wide">Observação<input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" /></label><button className="primary-button fit"><Plus size={16} /> Adicionar</button></form>}
-    <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Consulta</p><h2>{isAdmin ? 'Escala geral' : 'Meus serviços'}</h2></div><Filter size={18} /></div><div className="filter-grid">{isAdmin && <label>Militar<select value={filterSoldier} onChange={(e) => setFilterSoldier(e.target.value)}><option value="">Todos</option>{soldiers.map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label>}<label>Serviço<select value={filterService} onChange={(e) => setFilterService(e.target.value)}><option value="">Todos</option>{services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Mês<input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} /></label></div><ShiftTable shifts={visible} /></div></section>
+  async function cancelShift(id: string) {
+    if (!confirm('Cancelar este serviço da escala?')) return
+    const { error } = await supabase.from('shifts').update({ status: 'cancelado' }).eq('id', id)
+    if (error) return alert(error.message)
+    await onChanged()
+  }
+
+  function changeService(id: string) { setServiceId(id); const item = services.find((s) => s.id === id); if (item?.default_start) setStart(item.default_start.slice(0, 5)); if (item?.default_end) setEnd(item.default_end.slice(0, 5)) }
+  function exportCsv() {
+    const header = ['Data', 'Militar', 'Serviço', 'Início', 'Fim', 'Status']
+    const rows = visible.map((s) => [s.service_date, `${s.soldiers?.rank || ''} ${s.soldiers?.war_name || s.soldiers?.full_name || ''}`.trim(), s.service_types?.name || '', formatTime(s.start_time), formatTime(s.end_time), s.status])
+    const csv = [header, ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(';')).join('\n')
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = `escala-${filterMonth || 'completa'}.csv`; anchor.click(); URL.revokeObjectURL(url)
+  }
+
+  return <section className="content-stack">
+    {isAdmin && <form className="panel form-grid no-print" onSubmit={createShift}><div className="panel-heading full"><div><p className="eyebrow">Nova escala</p><h2>Adicionar serviço</h2></div></div><label>Militar<select value={soldierId} onChange={(e) => setSoldierId(e.target.value)} required><option value="">Selecione</option>{soldiers.filter((s) => s.active).map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label><label>Serviço<select value={serviceId} onChange={(e) => changeService(e.target.value)} required><option value="">Selecione</option>{services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Data<input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label><label>Início<input type="time" value={start} onChange={(e) => setStart(e.target.value)} required /></label><label>Fim<input type="time" value={end} onChange={(e) => setEnd(e.target.value)} required /></label><label className="wide">Observação<input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" /></label><button className="primary-button fit"><Plus size={16} /> Adicionar</button></form>}
+    <div className="panel print-panel"><div className="panel-heading"><div><p className="eyebrow">Consulta</p><h2>{isAdmin ? 'Escala geral' : 'Meus serviços'}</h2></div><div className="row-actions no-print"><button className="small-button" onClick={exportCsv}><Download size={14} /> CSV</button><button className="small-button" onClick={() => window.print()}><Printer size={14} /> Imprimir</button></div></div><div className="filter-grid no-print">{isAdmin && <label>Militar<select value={filterSoldier} onChange={(e) => setFilterSoldier(e.target.value)}><option value="">Todos</option>{soldiers.map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label>}<label>Serviço<select value={filterService} onChange={(e) => setFilterService(e.target.value)}><option value="">Todos</option>{services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Mês<input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} /></label></div><ShiftTable shifts={visible} onCancel={isAdmin ? cancelShift : undefined} /></div>
+  </section>
 }
 
 function SoldiersPanel({ soldiers, profiles, shifts, isAdmin, onChanged }: { soldiers: Soldier[]; profiles: Profile[]; shifts: Shift[]; isAdmin: boolean; onChanged: () => Promise<void> }) {
@@ -197,15 +300,48 @@ function UnavailabilityPanel({ items, soldiers, isAdmin, mySoldierId, onChanged 
   return <section className="content-stack">{isAdmin && <form className="panel form-grid" onSubmit={add}><div className="panel-heading full"><div><p className="eyebrow">Disponibilidade</p><h2>Novo impedimento</h2></div></div><label>Militar<select value={soldierId} onChange={(e) => setSoldierId(e.target.value)} required><option value="">Selecione</option>{soldiers.filter((s) => s.active).map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label><label>Tipo<select value={type} onChange={(e) => setType(e.target.value)}><option value="ferias">Férias</option><option value="missao">Missão</option><option value="curso">Curso</option><option value="afastamento">Afastamento</option><option value="dispensa">Dispensa</option><option value="outro">Outro</option></select></label><label>Início<input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required /></label><label>Fim<input type="date" min={startDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} required /></label><label className="wide">Observação<input value={reason} onChange={(e) => setReason(e.target.value)} /></label><button className="primary-button fit"><Plus size={16} /> Registrar</button></form>}<div className="panel"><div className="panel-heading"><div><p className="eyebrow">Períodos</p><h2>{isAdmin ? 'Impedimentos cadastrados' : 'Meus impedimentos'}</h2></div></div><div className="cards-list">{visible.length === 0 ? <p className="muted">Nenhum impedimento cadastrado.</p> : visible.map((item) => { const soldier = soldiers.find((s) => s.id === item.soldier_id); return <article className="swap-row" key={item.id}><div><strong>{soldier ? `${soldier.rank} ${soldier.war_name || soldier.full_name}` : 'Militar'}</strong><span>{labelType(item.type)} • {formatDate(item.start_date)} até {formatDate(item.end_date)}{item.reason ? ` • ${item.reason}` : ''}</span></div><span className={item.end_date >= new Date().toISOString().slice(0, 10) ? 'status danger' : 'status'}>{item.end_date >= new Date().toISOString().slice(0, 10) ? 'Ativo' : 'Encerrado'}</span>{isAdmin && <button className="small-button" onClick={() => void remove(item.id)}>Remover</button>}</article> })}</div></div></section>
 }
 
-function SwapsPanel({ swaps, shifts, soldiers, isAdmin, mySoldierId, onChanged }: { swaps: SwapRequest[]; shifts: Shift[]; soldiers: Soldier[]; isAdmin: boolean; mySoldierId: string | null; onChanged: () => Promise<void> }) {
+function SwapsPanel({ swaps, shifts, soldiers, profile, isAdmin, onChanged }: { swaps: SwapRequest[]; shifts: Shift[]; soldiers: Soldier[]; profile: Profile | null; isAdmin: boolean; onChanged: () => Promise<void> }) {
   const [shiftId, setShiftId] = useState(''); const [targetId, setTargetId] = useState(''); const [reason, setReason] = useState('')
+  const mySoldierId = profile?.soldier_id ?? null
   const eligible = shifts.filter((s) => s.soldier_id === mySoldierId && s.service_date >= new Date().toISOString().slice(0, 10) && s.status !== 'cancelado')
-  async function requestSwap(event: FormEvent) { event.preventDefault(); const { error } = await supabase.from('swap_requests').insert({ shift_id: shiftId, target_soldier_id: targetId || null, reason }); if (error) return alert(error.message); setShiftId(''); setTargetId(''); setReason(''); await onChanged() }
-  async function review(id: string, status: 'aprovada' | 'recusada') { const { error } = await supabase.from('swap_requests').update({ status, reviewed_at: new Date().toISOString() }).eq('id', id); if (error) return alert(error.message); await onChanged() }
-  return <section className="content-stack">{!isAdmin && <form className="panel form-grid" onSubmit={requestSwap}><div className="panel-heading full"><div><p className="eyebrow">Solicitação</p><h2>Pedir troca de serviço</h2></div></div>{!mySoldierId ? <div className="notice full">Sua conta ainda não foi vinculada a um cadastro de militar. Solicite o vínculo ao administrador.</div> : <><label>Meu serviço<select value={shiftId} onChange={(e) => setShiftId(e.target.value)} required><option value="">Selecione</option>{eligible.map((s) => <option key={s.id} value={s.id}>{formatDate(s.service_date)} • {s.service_types?.name}</option>)}</select></label><label>Preferência<select value={targetId} onChange={(e) => setTargetId(e.target.value)}><option value="">A definir</option>{soldiers.filter((s) => s.id !== mySoldierId && s.active).map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label><label className="wide">Motivo<textarea value={reason} onChange={(e) => setReason(e.target.value)} required /></label><button className="primary-button fit"><RefreshCw size={16} /> Enviar pedido</button></>}</form>}<div className="panel"><div className="panel-heading"><div><p className="eyebrow">Histórico</p><h2>{isAdmin ? 'Pedidos de troca' : 'Minhas solicitações'}</h2></div></div><div className="cards-list">{swaps.length === 0 ? <p className="muted">Nenhuma solicitação encontrada.</p> : swaps.map((swap) => { const shift = shifts.find((s) => s.id === swap.shift_id); const target = soldiers.find((s) => s.id === swap.target_soldier_id); return <article className="swap-row" key={swap.id}><div><strong>{shift ? `${formatDate(shift.service_date)} • ${shift.service_types?.name ?? 'Serviço'}` : 'Serviço'}</strong><span>{swap.reason}{target ? ` • Preferência: ${target.rank} ${target.war_name || target.full_name}` : ''}</span></div><span className={`status ${swap.status === 'aprovada' ? 'success' : swap.status === 'recusada' ? 'danger' : ''}`}>{swap.status}</span>{isAdmin && swap.status === 'pendente' && <div className="row-actions"><button className="small-button success-button" onClick={() => void review(swap.id, 'aprovada')}><CheckCircle2 size={14} /> Aprovar</button><button className="small-button" onClick={() => void review(swap.id, 'recusada')}>Recusar</button></div>}</article> })}</div></div></section>
+
+  async function requestSwap(event: FormEvent) {
+    event.preventDefault()
+    if (!targetId) return alert('Escolha o militar que receberá a solicitação de troca.')
+    const { error } = await supabase.from('swap_requests').insert({ shift_id: shiftId, target_soldier_id: targetId, reason })
+    if (error) return alert(error.message)
+    setShiftId(''); setTargetId(''); setReason(''); await onChanged()
+  }
+
+  async function respond(id: string, accepted: boolean) {
+    const { error } = await supabase.from('swap_requests').update({ target_accepted: accepted }).eq('id', id)
+    if (error) return alert(error.message)
+    await onChanged()
+  }
+
+  async function review(id: string, status: 'aprovada' | 'recusada') {
+    const { error } = await supabase.from('swap_requests').update({ status, reviewed_at: new Date().toISOString() }).eq('id', id)
+    if (error) return alert(error.message)
+    await onChanged()
+  }
+
+  return <section className="content-stack">
+    {!isAdmin && <form className="panel form-grid" onSubmit={requestSwap}><div className="panel-heading full"><div><p className="eyebrow">Solicitação</p><h2>Pedir troca de serviço</h2></div></div>{!mySoldierId ? <div className="notice full">Sua conta ainda não foi vinculada a um cadastro de militar. Solicite o vínculo ao administrador.</div> : <><label>Meu serviço<select value={shiftId} onChange={(e) => setShiftId(e.target.value)} required><option value="">Selecione</option>{eligible.map((s) => <option key={s.id} value={s.id}>{formatDate(s.service_date)} • {s.service_types?.name}</option>)}</select></label><label>Trocar com<select value={targetId} onChange={(e) => setTargetId(e.target.value)} required><option value="">Selecione</option>{soldiers.filter((s) => s.id !== mySoldierId && s.active).map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label><label className="wide">Motivo<textarea value={reason} onChange={(e) => setReason(e.target.value)} required /></label><button className="primary-button fit"><RefreshCw size={16} /> Enviar pedido</button></>}</form>}
+    <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Histórico</p><h2>{isAdmin ? 'Pedidos de troca' : 'Solicitações de troca'}</h2></div></div><div className="cards-list">{swaps.length === 0 ? <p className="muted">Nenhuma solicitação encontrada.</p> : swaps.map((swap) => {
+      const shift = shifts.find((s) => s.id === swap.shift_id)
+      const target = soldiers.find((s) => s.id === swap.target_soldier_id)
+      const isTarget = !!mySoldierId && swap.target_soldier_id === mySoldierId
+      const targetLabel = swap.target_accepted === true ? 'Substituto aceitou' : swap.target_accepted === false ? 'Substituto recusou' : 'Aguardando substituto'
+      return <article className="swap-row" key={swap.id}><div><strong>{shift ? `${formatDate(shift.service_date)} • ${shift.service_types?.name ?? 'Serviço'}` : 'Serviço'}</strong><span>{swap.reason}{target ? ` • Substituto: ${target.rank} ${target.war_name || target.full_name}` : ''}</span><span>{targetLabel}</span></div><span className={`status ${swap.status === 'aprovada' ? 'success' : swap.status === 'recusada' || swap.target_accepted === false ? 'danger' : ''}`}>{swap.status}</span>{!isAdmin && isTarget && swap.status === 'pendente' && swap.target_accepted === null && <div className="row-actions"><button className="small-button success-button" onClick={() => void respond(swap.id, true)}><CheckCircle2 size={14} /> Aceitar</button><button className="small-button" onClick={() => void respond(swap.id, false)}>Recusar</button></div>}{isAdmin && swap.status === 'pendente' && <div className="row-actions"><button className="small-button success-button" disabled={swap.target_accepted !== true} title={swap.target_accepted !== true ? 'O substituto precisa aceitar primeiro.' : ''} onClick={() => void review(swap.id, 'aprovada')}><CheckCircle2 size={14} /> Aprovar</button><button className="small-button" onClick={() => void review(swap.id, 'recusada')}>Recusar</button></div>}</article>
+    })}</div></div>
+  </section>
 }
 
-function ShiftTable({ shifts }: { shifts: Shift[] }) { if (shifts.length === 0) return <p className="muted">Nenhum serviço cadastrado.</p>; return <div className="table-wrap"><table><thead><tr><th>Data</th><th>Militar</th><th>Serviço</th><th>Horário</th><th>Status</th></tr></thead><tbody>{shifts.map((shift) => <tr key={shift.id}><td>{formatDate(shift.service_date)}</td><td><strong>{shift.soldiers?.rank} {shift.soldiers?.war_name || shift.soldiers?.full_name}</strong></td><td>{shift.service_types?.name}</td><td>{formatTime(shift.start_time)} – {formatTime(shift.end_time)}</td><td><span className={shift.status === 'confirmado' || shift.status === 'concluido' ? 'status success' : 'status'}>{shift.status}</span></td></tr>)}</tbody></table></div> }
+function ShiftTable({ shifts, onCancel }: { shifts: Shift[]; onCancel?: (id: string) => Promise<void> }) {
+  if (shifts.length === 0) return <p className="muted">Nenhum serviço cadastrado.</p>
+  return <div className="table-wrap"><table><thead><tr><th>Data</th><th>Militar</th><th>Serviço</th><th>Horário</th><th>Status</th>{onCancel && <th className="no-print">Ação</th>}</tr></thead><tbody>{shifts.map((shift) => <tr key={shift.id}><td>{formatDate(shift.service_date)}</td><td><strong>{shift.soldiers?.rank} {shift.soldiers?.war_name || shift.soldiers?.full_name}</strong></td><td>{shift.service_types?.name}</td><td>{formatTime(shift.start_time)} – {formatTime(shift.end_time)}</td><td><span className={shift.status === 'confirmado' || shift.status === 'concluido' ? 'status success' : shift.status === 'cancelado' ? 'status danger' : 'status'}>{shift.status}</span></td>{onCancel && <td className="no-print">{shift.status !== 'cancelado' && <button className="small-button" onClick={() => void onCancel(shift.id)}>Cancelar</button>}</td>}</tr>)}</tbody></table></div>
+}
+
 function EmptyState({ title, text }: { title: string; text: string }) { return <div className="panel empty-state"><ShieldCheck size={32} /><h2>{title}</h2><p>{text}</p></div> }
 function LoadingScreen() { return <div className="loading-screen"><ShieldCheck size={36} /><span>Carregando sistema...</span></div> }
 function LoadingBlock() { return <div className="panel muted">Carregando dados...</div> }
