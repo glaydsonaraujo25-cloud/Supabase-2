@@ -139,11 +139,7 @@ create policy "profiles_select_authenticated"
 on public.profiles for select to authenticated
 using (id = (select auth.uid()) or private.is_admin());
 
-create policy "profiles_update_own"
-on public.profiles for update to authenticated
-using (id = (select auth.uid()))
-with check (id = (select auth.uid()) and role = (select role from public.profiles where id = (select auth.uid())));
-
+-- Somente administradores podem alterar perfil, vínculo e papel.
 create policy "profiles_admin_update"
 on public.profiles for update to authenticated
 using (private.is_admin())
@@ -192,11 +188,7 @@ with check (
   )
 );
 
-create policy "swap_update_own_pending"
-on public.swap_requests for update to authenticated
-using (requester_id = (select auth.uid()) and status = 'pendente')
-with check (requester_id = (select auth.uid()) and status in ('pendente', 'cancelada'));
-
+-- Revisão de pedidos fica exclusivamente com o administrador.
 create policy "swap_admin_update"
 on public.swap_requests for update to authenticated
 using (private.is_admin()) with check (private.is_admin());
