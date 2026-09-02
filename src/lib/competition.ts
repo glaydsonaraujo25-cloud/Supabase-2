@@ -1,0 +1,94 @@
+export function isLeagueMatch(match: { bracket_stage?: string | null }) {
+  return !match.bracket_stage;
+}
+export function matchStatus(status: string) {
+  return (
+    (
+      {
+        agendado: "Agendado",
+        em_andamento: "Em andamento",
+        finalizado: "Finalizado",
+        cancelado: "Cancelado",
+      } as Record<string, string>
+    )[status] || "Status desconhecido"
+  );
+}
+export function validScore(value: string) {
+  return (
+    value.trim() !== "" && Number.isInteger(Number(value)) && Number(value) >= 0
+  );
+}
+
+export type ScoreMatch = {
+  home_team_id: string;
+  away_team_id: string;
+  status: string;
+  home_score: number | null;
+  away_score: number | null;
+  bracket_stage?: string | null;
+};
+export function calculateStandings<T extends { id: string; name: string }>(
+  teams: T[],
+  matches: ScoreMatch[],
+) {
+  const rows = new Map(
+    teams.map((team) => [
+      team.id,
+      {
+        team,
+        points: 0,
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        goalDiff: 0,
+      },
+    ]),
+  );
+  for (const match of matches) {
+    if (
+      !isLeagueMatch(match) ||
+      match.status !== "finalizado" ||
+      match.home_score === null ||
+      match.away_score === null
+    )
+      continue;
+    const home = rows.get(match.home_team_id),
+      away = rows.get(match.away_team_id);
+    if (!home || !away) continue;
+    const h = match.home_score,
+      a = match.away_score;
+    home.played++;
+    away.played++;
+    home.goalsFor += h;
+    home.goalsAgainst += a;
+    away.goalsFor += a;
+    away.goalsAgainst += h;
+    if (h > a) {
+      home.wins++;
+      home.points += 3;
+      away.losses++;
+    } else if (a > h) {
+      away.wins++;
+      away.points += 3;
+      home.losses++;
+    } else {
+      home.draws++;
+      away.draws++;
+      home.points++;
+      away.points++;
+    }
+  }
+  for (const row of rows.values())
+    row.goalDiff = row.goalsFor - row.goalsAgainst;
+  return [...rows.values()].sort(
+    (a, b) =>
+      b.points - a.points ||
+      b.wins - a.wins ||
+      b.goalDiff - a.goalDiff ||
+      b.goalsFor - a.goalsFor ||
+      a.team.name.localeCompare(b.team.name, "pt-BR"),
+  );
+}

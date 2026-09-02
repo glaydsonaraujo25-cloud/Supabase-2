@@ -4,3 +4,7 @@ dist
 .env.local
 .vscode
 .DS_Store
+*.tsbuildinfo
+coverage
+
+supabase/.temp/

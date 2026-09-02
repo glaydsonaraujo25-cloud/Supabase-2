@@ -1,12 +1,15 @@
 {
-  "name": "escala-servico-eb",
+  "name": "bracketly",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:db": "node tests/database.mjs",
+    "format": "prettier --write src/ChampionshipDashboard.tsx src/AuthScreen.tsx src/EditDialog.tsx src/ParticipantAdminCenter.tsx src/SharingCenter.tsx src/StatisticsCenter.tsx src/KnockoutCenter.tsx src/PublicChampionship.tsx src/lib tests"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.4",
@@ -15,11 +18,16 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
+    "@testing-library/react": "16.3.0",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "@vitejs/plugin-react": "5.0.4",
+    "jsdom": "26.1.0",
+    "prettier": "3.6.2",
     "typescript": "5.9.2",
-    "vite": "7.1.4"
+    "vite": "7.1.4",
+    "vitest": "3.2.4"
   },
   "engines": {
     "node": ">=22"

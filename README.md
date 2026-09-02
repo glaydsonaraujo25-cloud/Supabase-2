@@ -1,103 +1,86 @@
-# Escala de Serviço
+# Bracketly
 
-Aplicação web para gestão administrativa de escalas de serviço, construída com React, TypeScript e Supabase.
+Gestor de campeonatos com React, TypeScript, Vite e Supabase. Cada usuário pode organizar campeonatos ou participar por código de convite.
 
 ## Funcionalidades
 
-- Cadastro e login com Supabase Auth
-- Perfis `admin` e `usuario`
-- Cadastro de militares
-- Vínculo entre conta de usuário e militar
-- Cadastro de tipos de serviço
-- Criação e consulta da escala
-- Visão geral com indicadores
-- Consulta da escala individual
-- Solicitação de troca de serviço
-- Aprovação/recusa de solicitações pelo administrador
-- Row Level Security (RLS) em todas as tabelas expostas
-- Layout responsivo para desktop e celular
+- Cadastro, login, confirmação de e-mail, reenvio e recuperação de senha.
+- Criação e edição de campeonatos, times e jogadores.
+- Responsáveis por time e gerenciamento de participantes pelo organizador.
+- Tabela de pontos corridos, resultados, classificação e estatísticas individuais.
+- Mata-mata com pênaltis e avanço automático em uma transação no banco.
+- Página pública opcional com resultados, classificação e estatísticas.
+- Ferramentas no menu, mantendo o campeonato selecionado.
+- Consultas paginadas por campeonato, navegação por rodadas e acesso pelo celular.
 
-## Tecnologias
+## Desenvolvimento
 
-- React 19
-- TypeScript
-- Vite
-- Supabase Auth
-- Supabase PostgreSQL
-- Supabase Row Level Security
-- Lucide React
-
-## 1. Criar/configurar o Supabase
-
-Crie um projeto no Supabase e abra o **SQL Editor**. Execute todo o conteúdo de:
-
-```text
-supabase/schema.sql
-```
-
-O script cria as tabelas, relacionamentos, índices, trigger de perfil, RLS, permissões da Data API e tipos de serviço iniciais.
-
-## 2. Configurar as variáveis de ambiente
-
-Copie `.env.example` para `.env`:
-
-```env
-VITE_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sua_publishable_key
-```
-
-Use somente a **Publishable Key** no frontend. Nunca coloque Secret Key ou `service_role` em variáveis `VITE_*`.
-
-## 3. Instalar e executar
-
-É recomendado Node.js 22 ou superior.
+Use Node.js 22 ou superior:
 
 ```bash
-npm install
+npm ci
+cp .env.example .env
 npm run dev
 ```
 
-Para validar produção:
+Configure `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` e `VITE_SITE_URL` (a URL definitiva do site, sem barra final). Somente a chave pública deve estar no frontend.
+
+No Supabase Auth, configure a Site URL e permita os redirecionamentos:
+
+- `https://SEU-DOMINIO/?confirmed=1`
+- `https://SEU-DOMINIO/?reset=1`
+
+O cadastro segue o comportamento de privacidade do Supabase: a API pode ocultar a existência de uma conta. A interface orienta entrar ou recuperar senha quando a resposta indica cadastro existente, sem prometer que a API sempre revelará essa condição.
+
+## Banco de dados
+
+### Projeto Supabase novo e vazio
+
+Execute no SQL Editor, nesta ordem:
+
+1. `supabase/schema.sql`: estrutura completa, sem dados de usuários, incluindo tabelas legadas necessárias à compatibilidade.
+2. `supabase/upgrades/championship_integrity.sql`: permissões e regras atuais do Bracketly.
+
+O snapshot foi reconstruído do banco conectado e testado em uma instância PostgreSQL local. Não execute `schema.sql` sobre um banco já existente.
+
+### Projeto Bracketly que já possui campeonatos
+
+Execute somente `supabase/upgrades/championship_integrity.sql`. O script é transacional e pode ser reaplicado. Ele não exclui campeonatos, times, partidas ou usuários. Essa atualização foi aplicada ao projeto Supabase-2 durante a entrega.
+
+Os arquivos antigos em `supabase/migrations/` pertencem ao sistema de escalas anterior; não os reaplique após instalar o snapshot. Nenhuma tabela legada é apagada nesta atualização.
+
+## Regras da competição
+
+- Pontos corridos: 3 pontos por vitória, 1 por empate. Desempate por vitórias, saldo, gols marcados e nome.
+- Apenas partidas finalizadas sem `bracket_stage` entram na classificação por pontos.
+- A geração automática não acrescenta uma segunda tabela quando já há jogos.
+- Mata-mata: 2, 4, 8, 16, 32 ou 64 times; empate exige pênaltis. Ao concluir todos os jogos de uma fase, o banco gera a seguinte.
+- Depois de criada uma fase seguinte, alterações nos jogos anteriores ficam bloqueadas. Para corrigir a chave, use **Refazer chave**, que pede confirmação e apaga somente as eliminatórias e seus resultados.
+- `Grupos + mata-mata` mantém a fase classificatória única existente. A chave usa até 16 classificados e só pode começar após finalizar os jogos dessa fase. Divisão em vários grupos independentes ainda não é implementada.
+- Times com partidas não podem ser excluídos isoladamente. Remover um participante desassocia seu time na mesma transação.
+- Códigos de convite e identificadores de responsáveis não são liberados ao visitante da página pública.
+
+## Validação
 
 ```bash
+npm test
+npm run test:db
 npm run build
 ```
 
-## 4. Criar o primeiro administrador
+`npm test` valida componentes com dados simulados e regras de classificação. `test:db` cria um PostgreSQL local com PGlite, instala o snapshot e o upgrade e testa permissões, limites, avanço eliminatório e remoção de participantes. Não usa credenciais de produção.
 
-1. Cadastre a primeira conta pela própria aplicação.
-2. Confirme o e-mail, caso a confirmação esteja habilitada.
-3. No Supabase, encontre o UUID dessa conta em **Authentication > Users**.
-4. Execute uma única vez no SQL Editor:
+`supabase/tests/championship_integrity.sql` também pode ser executado no SQL Editor: cria registros de teste temporários e termina com `ROLLBACK`. Foi validado no Supabase conectado.
 
-```sql
-update public.profiles
-set role = 'admin'
-where id = 'UUID_DO_USUARIO';
-```
+O GitHub Actions executa os testes e a compilação em cada push/PR. A revisão visual no navegador não foi concluída na sessão de entrega porque o navegador bloqueou o endereço da prévia local.
 
-Depois disso, essa conta poderá cadastrar militares, criar serviços, montar escalas, vincular contas e revisar solicitações de troca.
+## Estrutura
 
-## Perfis de acesso
+- `src/ChampionshipDashboard.tsx`: navegação, campeonatos, times, jogadores e partidas.
+- `src/AuthScreen.tsx`: acesso e cadastro.
+- `src/ParticipantAdminCenter.tsx`, `SharingCenter.tsx`, `StatisticsCenter.tsx`, `KnockoutCenter.tsx`: ferramentas do campeonato.
+- `src/PublicChampionship.tsx`: página pública com cliente sem sessão persistida.
+- `src/lib/competition.ts`: regras de classificação compartilhadas.
+- `src/lib/data.ts`: leitura paginada sem truncar resultados da API.
 
-### Administrador
-
-Pode consultar e gerenciar militares, tipos de serviço, escalas, vínculos de contas e solicitações de troca.
-
-### Usuário
-
-Pode consultar os dados necessários para a escala, visualizar os próprios serviços e solicitar uma troca quando sua conta estiver vinculada a um militar.
-
-## Estrutura do banco
-
-- `profiles`: perfil e papel do usuário autenticado
-- `soldiers`: cadastro administrativo dos militares
-- `service_types`: tipos de serviço
-- `shifts`: escalas lançadas
-- `swap_requests`: pedidos de troca
-
-## Segurança
-
-O frontend utiliza apenas a Publishable Key. As regras de autorização ficam no PostgreSQL por meio de RLS. O papel administrativo não é obtido de `user_metadata`, impedindo que um usuário se promova editando metadados da própria conta.
-
-Evite cadastrar informações operacionais sensíveis que não sejam necessárias para a finalidade administrativa da aplicação.
+A proteção de senhas vazadas é uma configuração separada do Supabase Auth e não é ativada pelo código do site. Consulte a [documentação do Supabase](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
