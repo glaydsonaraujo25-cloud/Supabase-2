@@ -1,82 +1,113 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import {
-  AlertTriangle,
   CalendarDays,
-  CheckCircle2,
-  ClipboardList,
-  Download,
-  Filter,
+  ChevronRight,
+  CircleUserRound,
   KeyRound,
+  LayoutDashboard,
   LogOut,
+  Medal,
   Plus,
-  Printer,
   RefreshCw,
   ShieldCheck,
-  UserRound,
+  Swords,
+  Trash2,
+  Trophy,
+  UserPlus,
   Users,
 } from 'lucide-react'
 import { siteUrl, supabase } from './lib/supabase'
 
-type Profile = { id: string; full_name: string; role: 'admin' | 'usuario'; soldier_id: string | null }
-type Soldier = { id: string; full_name: string; rank: string; war_name: string | null; organization: string | null; active: boolean }
-type ServiceType = { id: string; name: string; description: string | null; default_start: string | null; default_end: string | null }
-type Shift = {
+type Championship = {
   id: string
-  soldier_id: string
-  service_type_id: string
-  service_date: string
-  start_time: string
-  end_time: string
-  status: string
-  notes: string | null
-  soldiers: { full_name: string; rank: string; war_name: string | null } | null
-  service_types: { name: string } | null
-}
-type SwapRequest = {
-  id: string
-  shift_id: string
-  requester_id: string
-  target_soldier_id: string | null
-  reason: string
-  status: string
-  admin_note: string | null
+  owner_id: string
+  name: string
+  sport: string
+  format: 'Pontos corridos' | 'Mata-mata' | 'Grupos + mata-mata'
+  status: 'rascunho' | 'aberto' | 'em_andamento' | 'finalizado'
+  start_date: string | null
+  end_date: string | null
+  max_teams: number
   created_at: string
-  target_accepted: boolean | null
-  target_responded_at: string | null
 }
-type Unavailability = { id: string; soldier_id: string; type: string; start_date: string; end_date: string; reason: string | null }
-type Tab = 'dashboard' | 'escala' | 'militares' | 'servicos' | 'impedimentos' | 'trocas'
 
-const tabs: { id: Tab; label: string }[] = [
-  { id: 'dashboard', label: 'Visão geral' },
-  { id: 'escala', label: 'Escala' },
-  { id: 'militares', label: 'Militares' },
-  { id: 'servicos', label: 'Serviços' },
-  { id: 'impedimentos', label: 'Impedimentos' },
-  { id: 'trocas', label: 'Trocas' },
+type Team = {
+  id: string
+  championship_id: string
+  name: string
+  short_name: string | null
+  city: string | null
+}
+
+type Player = {
+  id: string
+  team_id: string
+  name: string
+  shirt_number: number | null
+  position: string | null
+}
+
+type Match = {
+  id: string
+  championship_id: string
+  home_team_id: string
+  away_team_id: string
+  round: number
+  scheduled_at: string | null
+  status: 'agendado' | 'em_andamento' | 'finalizado' | 'cancelado'
+  home_score: number | null
+  away_score: number | null
+}
+
+type Profile = { id: string; full_name: string; email?: string | null }
+type Tab = 'dashboard' | 'campeonatos' | 'times' | 'partidas' | 'classificacao'
+
+type Standing = {
+  team: Team
+  points: number
+  played: number
+  wins: number
+  draws: number
+  losses: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDiff: number
+}
+
+const navItems: { id: Tab; label: string; icon: typeof Trophy }[] = [
+  { id: 'dashboard', label: 'Visão geral', icon: LayoutDashboard },
+  { id: 'campeonatos', label: 'Campeonatos', icon: Trophy },
+  { id: 'times', label: 'Times e jogadores', icon: Users },
+  { id: 'partidas', label: 'Partidas', icon: Swords },
+  { id: 'classificacao', label: 'Classificação', icon: Medal },
 ]
+
+const statusLabels: Record<Championship['status'], string> = {
+  rascunho: 'Rascunho',
+  aberto: 'Inscrições abertas',
+  em_andamento: 'Em andamento',
+  finalizado: 'Finalizado',
+}
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [soldiers, setSoldiers] = useState<Soldier[]>([])
-  const [services, setServices] = useState<ServiceType[]>([])
-  const [shifts, setShifts] = useState<Shift[]>([])
-  const [swaps, setSwaps] = useState<SwapRequest[]>([])
-  const [unavailabilities, setUnavailabilities] = useState<Unavailability[]>([])
-  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [championships, setChampionships] = useState<Championship[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [players, setPlayers] = useState<Player[]>([])
+  const [matches, setMatches] = useState<Match[]>([])
+  const [selectedId, setSelectedId] = useState<string>('')
   const [tab, setTab] = useState<Tab>('dashboard')
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
+  const [notice, setNotice] = useState('')
   const [recoveryMode, setRecoveryMode] = useState(new URLSearchParams(window.location.search).get('reset') === '1')
-  const isAdmin = profile?.role === 'admin'
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const errorDescription = params.get('error_description')
-    if (errorDescription) setMessage(decodeURIComponent(errorDescription.replace(/\+/g, ' ')))
-    else if (params.get('confirmed') === '1') setMessage('E-mail confirmado com sucesso. Você já pode entrar no sistema.')
+    if (errorDescription) setNotice(decodeURIComponent(errorDescription.replace(/\+/g, ' ')))
+    else if (params.get('confirmed') === '1') setNotice('E-mail confirmado com sucesso. Você já pode acessar sua conta.')
 
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
@@ -86,75 +117,340 @@ export default function App() {
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession)
       if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true)
-      if (!nextSession) setProfile(null)
+      if (!nextSession) {
+        setProfile(null)
+        setChampionships([])
+        setTeams([])
+        setPlayers([])
+        setMatches([])
+      }
     })
 
     return () => data.subscription.unsubscribe()
   }, [])
 
-  useEffect(() => { if (session?.user.id && !recoveryMode) void loadData() }, [session?.user.id, recoveryMode])
+  useEffect(() => {
+    if (session?.user.id && !recoveryMode) void loadData()
+  }, [session?.user.id, recoveryMode])
 
-  async function loadData() {
+  async function loadData(preferredId?: string) {
     if (!session?.user.id) return
     setLoading(true)
-    const { data: myProfile, error: profileError } = await supabase.from('profiles').select('id, full_name, role, soldier_id').eq('id', session.user.id).single()
-    if (profileError) {
-      setMessage(`Não foi possível carregar o perfil: ${profileError.message}`)
-      setLoading(false)
-      return
-    }
+    setNotice('')
 
-    const typedProfile = myProfile as Profile
-    setProfile(typedProfile)
-    const [soldierResult, serviceResult, shiftResult, swapResult, unavailableResult] = await Promise.all([
-      supabase.from('soldiers').select('id, full_name, rank, war_name, organization, active').order('rank').order('full_name'),
-      supabase.from('service_types').select('id, name, description, default_start, default_end').eq('active', true).order('name'),
-      supabase.from('shifts').select('id, soldier_id, service_type_id, service_date, start_time, end_time, status, notes, soldiers(full_name, rank, war_name), service_types(name)').order('service_date').order('start_time'),
-      supabase.from('swap_requests').select('id, shift_id, requester_id, target_soldier_id, reason, status, admin_note, created_at, target_accepted, target_responded_at').order('created_at', { ascending: false }),
-      supabase.from('unavailabilities').select('id, soldier_id, type, start_date, end_date, reason').order('start_date'),
+    const [profileResult, championshipResult, teamResult, playerResult, matchResult] = await Promise.all([
+      supabase.from('profiles').select('id, full_name, email').eq('id', session.user.id).maybeSingle(),
+      supabase.from('championships').select('*').order('created_at', { ascending: false }),
+      supabase.from('teams').select('*').order('name'),
+      supabase.from('players').select('*').order('name'),
+      supabase.from('matches').select('*').order('round').order('scheduled_at'),
     ])
 
-    if (soldierResult.data) setSoldiers(soldierResult.data as Soldier[])
-    if (serviceResult.data) setServices(serviceResult.data as ServiceType[])
-    if (shiftResult.data) setShifts(shiftResult.data as unknown as Shift[])
-    if (swapResult.data) setSwaps(swapResult.data as SwapRequest[])
-    if (unavailableResult.data) setUnavailabilities(unavailableResult.data as Unavailability[])
+    const firstError = profileResult.error || championshipResult.error || teamResult.error || playerResult.error || matchResult.error
+    if (firstError) setNotice(firstError.message)
 
-    if (typedProfile.role === 'admin') {
-      const { data } = await supabase.from('profiles').select('id, full_name, role, soldier_id').order('full_name')
-      if (data) setProfiles(data as Profile[])
+    if (profileResult.data) setProfile(profileResult.data as Profile)
+    if (championshipResult.data) {
+      const rows = championshipResult.data as Championship[]
+      setChampionships(rows)
+      const desired = preferredId || selectedId
+      if (desired && rows.some((item) => item.id === desired)) setSelectedId(desired)
+      else setSelectedId(rows[0]?.id || '')
     }
+    if (teamResult.data) setTeams(teamResult.data as Team[])
+    if (playerResult.data) setPlayers(playerResult.data as Player[])
+    if (matchResult.data) setMatches(matchResult.data as Match[])
     setLoading(false)
   }
 
-  async function signOut() { await supabase.auth.signOut() }
+  async function signOut() {
+    await supabase.auth.signOut()
+  }
 
-  const today = new Date().toISOString().slice(0, 10)
-  const upcoming = useMemo(() => shifts.filter((s) => s.service_date >= today && s.status !== 'cancelado'), [shifts, today])
-  const myShifts = useMemo(() => shifts.filter((s) => profile?.soldier_id && s.soldier_id === profile.soldier_id), [shifts, profile?.soldier_id])
+  const selected = championships.find((item) => item.id === selectedId) || null
+  const selectedTeams = useMemo(() => teams.filter((item) => item.championship_id === selectedId), [teams, selectedId])
+  const selectedTeamIds = useMemo(() => new Set(selectedTeams.map((item) => item.id)), [selectedTeams])
+  const selectedPlayers = useMemo(() => players.filter((item) => selectedTeamIds.has(item.team_id)), [players, selectedTeamIds])
+  const selectedMatches = useMemo(() => matches.filter((item) => item.championship_id === selectedId), [matches, selectedId])
+  const standings = useMemo(() => calculateStandings(selectedTeams, selectedMatches), [selectedTeams, selectedMatches])
 
   if (recoveryMode && session) return <ResetPasswordScreen onDone={() => { setRecoveryMode(false); window.history.replaceState({}, '', '/') }} />
   if (loading && !session) return <LoadingScreen />
-  if (!session) return <AuthScreen initialMessage={message} />
+  if (!session) return <AuthScreen initialMessage={notice} />
 
-  return <div className="app-shell">
-    <aside className="sidebar no-print">
-      <div className="brand"><div className="brand-icon"><ShieldCheck size={24} /></div><div><strong>Escala de Serviço</strong><span>Gestão administrativa</span></div></div>
-      <nav>{tabs.map((item) => <button key={item.id} className={tab === item.id ? 'nav-button active' : 'nav-button'} onClick={() => setTab(item.id)}>{item.label}</button>)}</nav>
-      <div className="sidebar-footer"><div className="account-card"><UserRound size={18} /><div><strong>{profile?.full_name || session.user.email}</strong><span>{isAdmin ? 'Administrador' : 'Usuário'}</span></div></div><button className="ghost-button" onClick={signOut}><LogOut size={17} /> Sair</button></div>
-    </aside>
-    <main>
-      <header className="topbar no-print"><div><p className="eyebrow">Sistema de escala</p><h1>{tabs.find((item) => item.id === tab)?.label}</h1></div><button className="secondary-button" onClick={() => void loadData()}><RefreshCw size={16} /> Atualizar</button></header>
-      {message && <div className="notice no-print">{message}</div>}
-      {loading ? <LoadingBlock /> : <>
-        {tab === 'dashboard' && <Dashboard upcoming={upcoming} myShifts={myShifts} soldiers={soldiers} swaps={swaps} unavailabilities={unavailabilities} shifts={shifts} isAdmin={isAdmin} />}
-        {tab === 'escala' && <SchedulePanel shifts={shifts} soldiers={soldiers} services={services} unavailabilities={unavailabilities} isAdmin={isAdmin} mySoldierId={profile?.soldier_id ?? null} onChanged={loadData} />}
-        {tab === 'militares' && <SoldiersPanel soldiers={soldiers} profiles={profiles} shifts={shifts} isAdmin={isAdmin} onChanged={loadData} />}
-        {tab === 'servicos' && <ServicesPanel services={services} isAdmin={isAdmin} onChanged={loadData} />}
-        {tab === 'impedimentos' && <UnavailabilityPanel items={unavailabilities} soldiers={soldiers} isAdmin={isAdmin} mySoldierId={profile?.soldier_id ?? null} onChanged={loadData} />}
-        {tab === 'trocas' && <SwapsPanel swaps={swaps} shifts={shifts} soldiers={soldiers} profile={profile} isAdmin={isAdmin} onChanged={loadData} />}
-      </>}
-    </main>
+  const activeLabel = navItems.find((item) => item.id === tab)?.label || 'Gestor de campeonatos'
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark"><Trophy size={24} /></div>
+          <div><strong>Bracketly</strong><span>Gestor de campeonatos</span></div>
+        </div>
+
+        <nav className="sidebar-nav">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            return <button key={item.id} className={tab === item.id ? 'nav-button active' : 'nav-button'} onClick={() => setTab(item.id)}><Icon size={18} /><span>{item.label}</span></button>
+          })}
+        </nav>
+
+        <div className="sidebar-account">
+          <div className="account-card"><CircleUserRound size={20} /><div><strong>{profile?.full_name || session.user.email}</strong><span>{session.user.email}</span></div></div>
+          <button className="ghost-button" onClick={signOut}><LogOut size={17} /> Sair</button>
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <header className="topbar">
+          <div><p className="eyebrow">Painel do organizador</p><h1>{activeLabel}</h1></div>
+          <div className="topbar-actions">
+            {championships.length > 0 && <select className="championship-select" value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>{championships.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}
+            <button className="secondary-button" onClick={() => void loadData()}><RefreshCw size={16} /> Atualizar</button>
+          </div>
+        </header>
+
+        {notice && <div className="notice">{notice}</div>}
+
+        {loading ? <LoadingBlock /> : <>
+          {tab === 'dashboard' && <Dashboard championship={selected} teams={selectedTeams} players={selectedPlayers} matches={selectedMatches} standings={standings} onCreate={() => setTab('campeonatos')} />}
+          {tab === 'campeonatos' && <ChampionshipsPanel championships={championships} selectedId={selectedId} onSelect={setSelectedId} userId={session.user.id} onChanged={loadData} />}
+          {tab === 'times' && <TeamsPanel championship={selected} teams={selectedTeams} players={players} onChanged={() => loadData(selectedId)} />}
+          {tab === 'partidas' && <MatchesPanel championship={selected} teams={selectedTeams} matches={selectedMatches} onChanged={() => loadData(selectedId)} />}
+          {tab === 'classificacao' && <StandingsPanel championship={selected} standings={standings} />}
+        </>}
+      </main>
+    </div>
+  )
+}
+
+function Dashboard({ championship, teams, players, matches, standings, onCreate }: { championship: Championship | null; teams: Team[]; players: Player[]; matches: Match[]; standings: Standing[]; onCreate: () => void }) {
+  if (!championship) return <EmptyState icon={<Trophy size={34} />} title="Crie seu primeiro campeonato" description="Cadastre a competição e depois adicione times, jogadores e partidas." action={<button className="primary-button" onClick={onCreate}><Plus size={16} /> Novo campeonato</button>} />
+
+  const finished = matches.filter((item) => item.status === 'finalizado').length
+  const nextMatch = matches.filter((item) => item.status === 'agendado' && item.scheduled_at).sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))[0]
+  const teamName = (id: string) => teams.find((team) => team.id === id)?.name || 'Time'
+
+  return <div className="page-stack">
+    <section className="hero-card">
+      <div><span className={`status-pill status-${championship.status}`}>{statusLabels[championship.status]}</span><h2>{championship.name}</h2><p>{championship.sport} · {championship.format} · até {championship.max_teams} times</p></div>
+      <Trophy size={72} strokeWidth={1.2} />
+    </section>
+
+    <section className="stats-grid">
+      <StatCard label="Times" value={teams.length} detail={`de ${championship.max_teams} vagas`} icon={<Users size={20} />} />
+      <StatCard label="Jogadores" value={players.length} detail="cadastrados" icon={<UserPlus size={20} />} />
+      <StatCard label="Partidas" value={matches.length} detail={`${finished} finalizadas`} icon={<Swords size={20} />} />
+      <StatCard label="Líder" value={standings[0]?.team.short_name || standings[0]?.team.name || '—'} detail={standings[0] ? `${standings[0].points} pontos` : 'sem resultados'} icon={<Medal size={20} />} />
+    </section>
+
+    <section className="dashboard-grid">
+      <div className="panel-card">
+        <div className="section-heading"><div><p className="eyebrow">Classificação</p><h3>Top 5</h3></div></div>
+        {standings.length ? <div className="mini-ranking">{standings.slice(0, 5).map((row, index) => <div key={row.team.id}><span className="rank-number">{index + 1}</span><strong>{row.team.name}</strong><span>{row.points} pts</span></div>)}</div> : <p className="muted">A classificação aparecerá após cadastrar times.</p>}
+      </div>
+      <div className="panel-card">
+        <div className="section-heading"><div><p className="eyebrow">Agenda</p><h3>Próxima partida</h3></div></div>
+        {nextMatch ? <div className="next-match"><span>Rodada {nextMatch.round}</span><strong>{teamName(nextMatch.home_team_id)} <small>vs</small> {teamName(nextMatch.away_team_id)}</strong><p>{formatDateTime(nextMatch.scheduled_at)}</p></div> : <p className="muted">Nenhuma partida agendada.</p>}
+      </div>
+    </section>
+  </div>
+}
+
+function ChampionshipsPanel({ championships, selectedId, onSelect, userId, onChanged }: { championships: Championship[]; selectedId: string; onSelect: (id: string) => void; userId: string; onChanged: (id?: string) => Promise<void> }) {
+  const [showForm, setShowForm] = useState(false)
+  const [name, setName] = useState('')
+  const [sport, setSport] = useState('Futebol')
+  const [format, setFormat] = useState<Championship['format']>('Pontos corridos')
+  const [startDate, setStartDate] = useState('')
+  const [maxTeams, setMaxTeams] = useState(8)
+  const [busy, setBusy] = useState(false)
+  const [feedback, setFeedback] = useState('')
+
+  async function createChampionship(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setFeedback('')
+    const { data, error } = await supabase.from('championships').insert({ owner_id: userId, name: name.trim(), sport: sport.trim(), format, start_date: startDate || null, max_teams: maxTeams }).select('id').single()
+    if (error) setFeedback(error.message)
+    else {
+      setName(''); setStartDate(''); setShowForm(false)
+      await onChanged(data.id)
+      onSelect(data.id)
+    }
+    setBusy(false)
+  }
+
+  async function removeChampionship(item: Championship) {
+    if (!window.confirm(`Excluir o campeonato “${item.name}” e todos os seus times, jogadores e partidas?`)) return
+    const { error } = await supabase.from('championships').delete().eq('id', item.id)
+    if (error) setFeedback(error.message)
+    else await onChanged()
+  }
+
+  async function updateStatus(item: Championship, status: Championship['status']) {
+    const { error } = await supabase.from('championships').update({ status, updated_at: new Date().toISOString() }).eq('id', item.id)
+    if (error) setFeedback(error.message)
+    else await onChanged(item.id)
+  }
+
+  return <div className="page-stack">
+    <div className="page-actions"><div><p className="muted">Você pode criar vários campeonatos e manter os dados separados.</p></div><button className="primary-button" onClick={() => setShowForm((value) => !value)}><Plus size={16} /> Novo campeonato</button></div>
+    {showForm && <form className="form-card form-grid" onSubmit={createChampionship}>
+      <label className="span-2">Nome do campeonato<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Copa da Firma 2026" minLength={3} required /></label>
+      <label>Modalidade<input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="Futebol" required /></label>
+      <label>Formato<select value={format} onChange={(e) => setFormat(e.target.value as Championship['format'])}><option>Pontos corridos</option><option>Mata-mata</option><option>Grupos + mata-mata</option></select></label>
+      <label>Data de início<input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
+      <label>Máximo de times<input type="number" min={2} max={64} value={maxTeams} onChange={(e) => setMaxTeams(Number(e.target.value))} required /></label>
+      {feedback && <div className="notice span-2">{feedback}</div>}
+      <div className="form-actions span-2"><button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancelar</button><button className="primary-button" disabled={busy}>{busy ? 'Criando...' : 'Criar campeonato'}</button></div>
+    </form>}
+
+    {feedback && !showForm && <div className="notice">{feedback}</div>}
+    {championships.length === 0 ? <EmptyState icon={<Trophy size={32} />} title="Nenhum campeonato ainda" description="Crie sua primeira competição para começar." /> : <div className="cards-grid">{championships.map((item) => <article key={item.id} className={selectedId === item.id ? 'champ-card selected' : 'champ-card'} onClick={() => onSelect(item.id)}>
+      <div className="champ-card-top"><span className={`status-pill status-${item.status}`}>{statusLabels[item.status]}</span><button className="icon-button danger" title="Excluir campeonato" onClick={(e) => { e.stopPropagation(); void removeChampionship(item) }}><Trash2 size={16} /></button></div>
+      <div><p className="eyebrow">{item.sport}</p><h3>{item.name}</h3><p>{item.format}</p></div>
+      <div className="champ-meta"><span><Users size={15} /> até {item.max_teams} times</span><span><CalendarDays size={15} /> {formatDate(item.start_date)}</span></div>
+      <label onClick={(e) => e.stopPropagation()}>Status<select value={item.status} onChange={(e) => void updateStatus(item, e.target.value as Championship['status'])}><option value="rascunho">Rascunho</option><option value="aberto">Inscrições abertas</option><option value="em_andamento">Em andamento</option><option value="finalizado">Finalizado</option></select></label>
+      <button className="text-button" onClick={() => onSelect(item.id)}>Gerenciar <ChevronRight size={15} /></button>
+    </article>)}</div>}
+  </div>
+}
+
+function TeamsPanel({ championship, teams, players, onChanged }: { championship: Championship | null; teams: Team[]; players: Player[]; onChanged: () => Promise<void> }) {
+  const [name, setName] = useState('')
+  const [shortName, setShortName] = useState('')
+  const [city, setCity] = useState('')
+  const [expandedTeam, setExpandedTeam] = useState<string>('')
+  const [playerName, setPlayerName] = useState('')
+  const [shirtNumber, setShirtNumber] = useState('')
+  const [position, setPosition] = useState('')
+  const [feedback, setFeedback] = useState('')
+
+  if (!championship) return <EmptyState icon={<Users size={32} />} title="Selecione um campeonato" description="Crie ou selecione um campeonato antes de cadastrar times." />
+
+  async function addTeam(event: FormEvent) {
+    event.preventDefault(); setFeedback('')
+    if (teams.length >= championship.max_teams) return setFeedback('O limite de times deste campeonato foi atingido.')
+    const { error } = await supabase.from('teams').insert({ championship_id: championship.id, name: name.trim(), short_name: shortName.trim().toUpperCase() || null, city: city.trim() || null })
+    if (error) setFeedback(error.message)
+    else { setName(''); setShortName(''); setCity(''); await onChanged() }
+  }
+
+  async function addPlayer(event: FormEvent, teamId: string) {
+    event.preventDefault(); setFeedback('')
+    const { error } = await supabase.from('players').insert({ team_id: teamId, name: playerName.trim(), shirt_number: shirtNumber ? Number(shirtNumber) : null, position: position.trim() || null })
+    if (error) setFeedback(error.message)
+    else { setPlayerName(''); setShirtNumber(''); setPosition(''); await onChanged() }
+  }
+
+  async function removeTeam(team: Team) {
+    if (!window.confirm(`Excluir o time “${team.name}” e seus jogadores?`)) return
+    const { error } = await supabase.from('teams').delete().eq('id', team.id)
+    if (error) setFeedback(error.message); else await onChanged()
+  }
+
+  async function removePlayer(player: Player) {
+    const { error } = await supabase.from('players').delete().eq('id', player.id)
+    if (error) setFeedback(error.message); else await onChanged()
+  }
+
+  return <div className="page-stack">
+    <form className="form-card inline-form" onSubmit={addTeam}>
+      <div><p className="eyebrow">Novo time</p><h3>{teams.length}/{championship.max_teams} times cadastrados</h3></div>
+      <label>Nome<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do time" required /></label>
+      <label>Sigla<input value={shortName} onChange={(e) => setShortName(e.target.value.slice(0, 5))} placeholder="ABC" minLength={2} maxLength={5} /></label>
+      <label>Cidade<input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Opcional" /></label>
+      <button className="primary-button"><Plus size={16} /> Adicionar</button>
+    </form>
+    {feedback && <div className="notice">{feedback}</div>}
+
+    {teams.length === 0 ? <EmptyState icon={<Users size={32} />} title="Cadastre os participantes" description="Adicione os times que disputarão este campeonato." /> : <div className="team-list">{teams.map((team) => {
+      const roster = players.filter((player) => player.team_id === team.id)
+      const open = expandedTeam === team.id
+      return <article key={team.id} className="team-card">
+        <div className="team-summary">
+          <button className="team-main" onClick={() => setExpandedTeam(open ? '' : team.id)}><span className="team-badge">{team.short_name || initials(team.name)}</span><div><strong>{team.name}</strong><span>{team.city || 'Cidade não informada'} · {roster.length} jogadores</span></div></button>
+          <button className="icon-button danger" onClick={() => void removeTeam(team)} title="Excluir time"><Trash2 size={16} /></button>
+        </div>
+        {open && <div className="roster-area">
+          <div className="roster-list">{roster.length ? roster.map((player) => <div key={player.id} className="player-row"><span className="shirt-number">{player.shirt_number ?? '—'}</span><div><strong>{player.name}</strong><span>{player.position || 'Posição não informada'}</span></div><button className="icon-button danger" onClick={() => void removePlayer(player)}><Trash2 size={15} /></button></div>) : <p className="muted">Nenhum jogador cadastrado.</p>}</div>
+          <form className="player-form" onSubmit={(event) => void addPlayer(event, team.id)}>
+            <input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Nome do jogador" required />
+            <input type="number" min={0} max={99} value={shirtNumber} onChange={(e) => setShirtNumber(e.target.value)} placeholder="Nº" />
+            <input value={position} onChange={(e) => setPosition(e.target.value)} placeholder="Posição" />
+            <button className="secondary-button"><UserPlus size={16} /> Jogador</button>
+          </form>
+        </div>}
+      </article>
+    })}</div>}
+  </div>
+}
+
+function MatchesPanel({ championship, teams, matches, onChanged }: { championship: Championship | null; teams: Team[]; matches: Match[]; onChanged: () => Promise<void> }) {
+  const [home, setHome] = useState('')
+  const [away, setAway] = useState('')
+  const [round, setRound] = useState(1)
+  const [scheduledAt, setScheduledAt] = useState('')
+  const [feedback, setFeedback] = useState('')
+
+  if (!championship) return <EmptyState icon={<Swords size={32} />} title="Selecione um campeonato" description="As partidas ficam vinculadas ao campeonato selecionado." />
+  const teamName = (id: string) => teams.find((team) => team.id === id)?.name || 'Time removido'
+
+  async function addMatch(event: FormEvent) {
+    event.preventDefault(); setFeedback('')
+    if (home === away) return setFeedback('Selecione times diferentes.')
+    const { error } = await supabase.from('matches').insert({ championship_id: championship.id, home_team_id: home, away_team_id: away, round, scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null })
+    if (error) setFeedback(error.message)
+    else { setHome(''); setAway(''); setScheduledAt(''); await onChanged() }
+  }
+
+  async function saveResult(match: Match, homeScore: string, awayScore: string) {
+    const hs = Number(homeScore); const as = Number(awayScore)
+    if (!Number.isInteger(hs) || !Number.isInteger(as) || hs < 0 || as < 0) return setFeedback('Informe placares válidos.')
+    const { error } = await supabase.from('matches').update({ home_score: hs, away_score: as, status: 'finalizado' }).eq('id', match.id)
+    if (error) setFeedback(error.message); else await onChanged()
+  }
+
+  async function removeMatch(id: string) {
+    const { error } = await supabase.from('matches').delete().eq('id', id)
+    if (error) setFeedback(error.message); else await onChanged()
+  }
+
+  return <div className="page-stack">
+    {teams.length < 2 ? <div className="notice">Cadastre pelo menos dois times para criar uma partida.</div> : <form className="form-card match-form" onSubmit={addMatch}>
+      <div className="span-2"><p className="eyebrow">Nova partida</p><h3>Monte a rodada</h3></div>
+      <label>Mandante<select value={home} onChange={(e) => setHome(e.target.value)} required><option value="">Selecione</option>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
+      <label>Visitante<select value={away} onChange={(e) => setAway(e.target.value)} required><option value="">Selecione</option>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
+      <label>Rodada<input type="number" min={1} value={round} onChange={(e) => setRound(Number(e.target.value))} required /></label>
+      <label>Data e hora<input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} /></label>
+      <div className="form-actions span-2"><button className="primary-button"><Plus size={16} /> Adicionar partida</button></div>
+    </form>}
+    {feedback && <div className="notice">{feedback}</div>}
+
+    {matches.length === 0 ? <EmptyState icon={<CalendarDays size={32} />} title="Nenhuma partida cadastrada" description="Crie partidas para montar a agenda e alimentar a classificação." /> : <div className="match-list">{matches.map((match) => <MatchCard key={match.id} match={match} homeName={teamName(match.home_team_id)} awayName={teamName(match.away_team_id)} onSave={saveResult} onDelete={removeMatch} />)}</div>}
+  </div>
+}
+
+function MatchCard({ match, homeName, awayName, onSave, onDelete }: { match: Match; homeName: string; awayName: string; onSave: (match: Match, homeScore: string, awayScore: string) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
+  const [homeScore, setHomeScore] = useState(match.home_score?.toString() ?? '')
+  const [awayScore, setAwayScore] = useState(match.away_score?.toString() ?? '')
+
+  return <article className="match-card">
+    <div className="match-meta"><span>Rodada {match.round}</span><span>{formatDateTime(match.scheduled_at)}</span></div>
+    <div className="score-line">
+      <strong>{homeName}</strong>
+      <div className="score-inputs"><input type="number" min={0} value={homeScore} onChange={(e) => setHomeScore(e.target.value)} aria-label={`Placar ${homeName}`} /><span>×</span><input type="number" min={0} value={awayScore} onChange={(e) => setAwayScore(e.target.value)} aria-label={`Placar ${awayName}`} /></div>
+      <strong>{awayName}</strong>
+    </div>
+    <div className="match-actions"><span className={`match-status ${match.status}`}>{match.status === 'finalizado' ? 'Finalizada' : match.status === 'cancelado' ? 'Cancelada' : 'Agendada'}</span><div><button className="secondary-button compact" onClick={() => void onSave(match, homeScore, awayScore)}>Salvar resultado</button><button className="icon-button danger" onClick={() => void onDelete(match.id)}><Trash2 size={16} /></button></div></div>
+  </article>
+}
+
+function StandingsPanel({ championship, standings }: { championship: Championship | null; standings: Standing[] }) {
+  if (!championship) return <EmptyState icon={<Medal size={32} />} title="Selecione um campeonato" description="A classificação é calculada automaticamente pelos resultados." />
+  return <div className="page-stack">
+    <div className="panel-card"><div className="section-heading"><div><p className="eyebrow">{championship.name}</p><h3>Classificação geral</h3></div><span className="muted">3 pts vitória · 1 pt empate</span></div>
+      {standings.length === 0 ? <p className="muted">Cadastre times para visualizar a tabela.</p> : <div className="table-scroll"><table className="standings-table"><thead><tr><th>#</th><th>Time</th><th>Pts</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th></tr></thead><tbody>{standings.map((row, index) => <tr key={row.team.id}><td><span className={index < 3 ? 'position-badge top' : 'position-badge'}>{index + 1}</span></td><td><div className="table-team"><span className="tiny-team-badge">{row.team.short_name || initials(row.team.name)}</span><strong>{row.team.name}</strong></div></td><td><strong>{row.points}</strong></td><td>{row.played}</td><td>{row.wins}</td><td>{row.draws}</td><td>{row.losses}</td><td>{row.goalsFor}</td><td>{row.goalsAgainst}</td><td>{row.goalDiff}</td></tr>)}</tbody></table></div>}
+    </div>
   </div>
 }
 
@@ -169,34 +465,35 @@ function AuthScreen({ initialMessage }: { initialMessage?: string }) {
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setFeedback('')
     if (mode === 'register') {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName }, emailRedirectTo: `${siteUrl}/?confirmed=1` },
-      })
-      setFeedback(error ? error.message : 'Cadastro realizado. Enviamos um link de confirmação para o seu e-mail.')
+      const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: `${siteUrl}/?confirmed=1` } })
+      setFeedback(error ? translateAuthError(error.message) : 'Cadastro realizado. Confirme o link enviado para o seu e-mail.')
     } else if (mode === 'forgot') {
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${siteUrl}/?reset=1` })
-      setFeedback(error ? error.message : 'Enviamos o link de redefinição de senha para o seu e-mail.')
+      setFeedback(error ? translateAuthError(error.message) : 'Enviamos o link de redefinição de senha para o seu e-mail.')
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setFeedback(error.message)
+      if (error) setFeedback(translateAuthError(error.message))
     }
     setBusy(false)
   }
 
   return <div className="auth-page">
-    <div className="auth-hero"><div className="hero-badge"><ShieldCheck size={18} /> Controle de acesso com Supabase</div><h1>Escalas organizadas, consulta rápida e histórico em um só lugar.</h1><p>Gestão administrativa de equipes, serviços, impedimentos e trocas com validação automática de conflitos.</p><div className="feature-list"><span>Escala centralizada</span><span>Impedimentos</span><span>Trocas aprovadas</span><span>Perfis de acesso</span></div></div>
-    <form className="auth-card" onSubmit={submit}>
-      <div><p className="eyebrow">Acesso</p><h2>{mode === 'login' ? 'Entrar no sistema' : mode === 'register' ? 'Criar sua conta' : 'Redefinir senha'}</h2></div>
-      {mode === 'register' && <label>Nome completo<input value={fullName} onChange={(e) => setFullName(e.target.value)} required /></label>}
+    <section className="auth-showcase">
+      <div className="auth-brand"><div className="brand-mark large"><Trophy size={28} /></div><strong>Bracketly</strong></div>
+      <div className="auth-copy"><span className="hero-badge"><ShieldCheck size={16} /> Dados protegidos pelo Supabase</span><h1>Seu campeonato organizado do primeiro time até a final.</h1><p>Crie competições, cadastre equipes e jogadores, registre partidas e acompanhe a classificação automaticamente.</p></div>
+      <div className="auth-features"><span><Trophy size={18} /> Vários campeonatos</span><span><Users size={18} /> Times e elencos</span><span><Swords size={18} /> Partidas e placares</span><span><Medal size={18} /> Classificação automática</span></div>
+    </section>
+
+    <section className="auth-side"><form className="auth-card" onSubmit={submit}>
+      <div><p className="eyebrow">Sua conta</p><h2>{mode === 'login' ? 'Entre no Bracketly' : mode === 'register' ? 'Crie sua conta' : 'Redefina sua senha'}</h2><p className="muted">{mode === 'login' ? 'Acesse seus campeonatos e continue de onde parou.' : mode === 'register' ? 'Seu espaço fica separado e protegido por usuário.' : 'Você receberá um link seguro por e-mail.'}</p></div>
+      {mode === 'register' && <label>Nome completo<input value={fullName} onChange={(e) => setFullName(e.target.value)} minLength={3} required /></label>}
       <label>E-mail<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
-      {mode !== 'forgot' && <label>Senha<input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></label>}
+      {mode !== 'forgot' && <label>Senha<input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /><small>Use pelo menos 8 caracteres.</small></label>}
       {feedback && <div className="notice">{feedback}</div>}
-      <button className="primary-button" disabled={busy}>{busy ? 'Processando...' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Cadastrar' : 'Enviar link'}</button>
+      <button className="primary-button large-button" disabled={busy}>{busy ? 'Processando...' : mode === 'login' ? 'Entrar' : mode === 'register' ? 'Criar conta' : 'Enviar link'}</button>
       {mode === 'login' && <button type="button" className="link-button" onClick={() => { setMode('forgot'); setFeedback('') }}><KeyRound size={15} /> Esqueci minha senha</button>}
-      <button type="button" className="link-button" onClick={() => { setMode(mode === 'register' ? 'login' : mode === 'forgot' ? 'login' : 'register'); setFeedback('') }}>{mode === 'login' ? 'Ainda não tenho conta' : 'Voltar para o login'}</button>
-    </form>
+      <button type="button" className="link-button" onClick={() => { setMode(mode === 'register' ? 'login' : mode === 'forgot' ? 'login' : 'register'); setFeedback('') }}>{mode === 'login' ? 'Ainda não tenho uma conta' : 'Voltar para o login'}</button>
+    </form></section>
   </div>
 }
 
@@ -211,140 +508,54 @@ function ResetPasswordScreen({ onDone }: { onDone: () => void }) {
     if (password !== confirmPassword) return setFeedback('As senhas não coincidem.')
     setBusy(true); setFeedback('')
     const { error } = await supabase.auth.updateUser({ password })
-    if (error) setFeedback(error.message)
-    else {
-      await supabase.auth.signOut()
-      alert('Senha alterada com sucesso. Entre novamente com a nova senha.')
-      onDone()
-    }
+    if (error) setFeedback(translateAuthError(error.message))
+    else { await supabase.auth.signOut(); onDone() }
     setBusy(false)
   }
 
-  return <div className="auth-page"><div className="auth-hero"><div className="hero-badge"><KeyRound size={18} /> Recuperação de conta</div><h1>Defina uma nova senha.</h1><p>Escolha uma senha com pelo menos 8 caracteres e mantenha seus dados de acesso protegidos.</p></div><form className="auth-card" onSubmit={submit}><div><p className="eyebrow">Nova senha</p><h2>Atualizar acesso</h2></div><label>Nova senha<input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></label><label>Confirmar nova senha<input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /></label>{feedback && <div className="notice">{feedback}</div>}<button className="primary-button" disabled={busy}>{busy ? 'Atualizando...' : 'Salvar nova senha'}</button></form></div>
+  return <div className="center-page"><form className="auth-card compact-card" onSubmit={submit}><div className="brand-mark large"><KeyRound size={26} /></div><div><p className="eyebrow">Segurança</p><h2>Escolha uma nova senha</h2></div><label>Nova senha<input type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></label><label>Confirmar senha<input type="password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required /></label>{feedback && <div className="notice">{feedback}</div>}<button className="primary-button" disabled={busy}>{busy ? 'Salvando...' : 'Salvar nova senha'}</button></form></div>
 }
 
-function Dashboard({ upcoming, myShifts, soldiers, swaps, unavailabilities, shifts, isAdmin }: { upcoming: Shift[]; myShifts: Shift[]; soldiers: Soldier[]; swaps: SwapRequest[]; unavailabilities: Unavailability[]; shifts: Shift[]; isAdmin: boolean }) {
-  const activeBlocks = unavailabilities.filter((u) => u.end_date >= new Date().toISOString().slice(0, 10)).length
-  const cards = isAdmin ? [
-    { label: 'Militares ativos', value: soldiers.filter((s) => s.active).length, icon: Users },
-    { label: 'Próximos serviços', value: upcoming.length, icon: CalendarDays },
-    { label: 'Impedimentos ativos', value: activeBlocks, icon: AlertTriangle },
-    { label: 'Trocas pendentes', value: swaps.filter((s) => s.status === 'pendente').length, icon: RefreshCw },
-  ] : [
-    { label: 'Meus serviços', value: myShifts.length, icon: ClipboardList },
-    { label: 'Próximos serviços', value: myShifts.filter((s) => s.service_date >= new Date().toISOString().slice(0, 10)).length, icon: CalendarDays },
-    { label: 'Trocas pendentes', value: swaps.filter((s) => s.status === 'pendente').length, icon: RefreshCw },
-  ]
-  const workload = soldiers.map((soldier) => ({ soldier, count: shifts.filter((s) => s.soldier_id === soldier.id && s.status !== 'cancelado').length })).sort((a, b) => b.count - a.count)
-  return <section className="content-stack"><div className="stats-grid">{cards.map(({ label, value, icon: Icon }) => <article className="stat-card" key={label}><Icon size={21} /><div><span>{label}</span><strong>{value}</strong></div></article>)}</div><div className="panel"><div className="panel-heading"><div><p className="eyebrow">Próximos dias</p><h2>{isAdmin ? 'Próximos serviços' : 'Minha escala'}</h2></div></div><ShiftTable shifts={isAdmin ? upcoming.slice(0, 8) : myShifts.slice(0, 8)} /></div>{isAdmin && <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Distribuição</p><h2>Carga de serviços</h2></div></div><div className="workload-grid">{workload.slice(0, 12).map(({ soldier, count }) => <div className="workload-item" key={soldier.id}><span>{soldier.rank} {soldier.war_name || soldier.full_name}</span><strong>{count}</strong></div>)}</div></div>}</section>
+function StatCard({ label, value, detail, icon }: { label: string; value: string | number; detail: string; icon: React.ReactNode }) {
+  return <article className="stat-card"><div className="stat-icon">{icon}</div><div><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></article>
 }
 
-function SchedulePanel({ shifts, soldiers, services, unavailabilities, isAdmin, mySoldierId, onChanged }: { shifts: Shift[]; soldiers: Soldier[]; services: ServiceType[]; unavailabilities: Unavailability[]; isAdmin: boolean; mySoldierId: string | null; onChanged: () => Promise<void> }) {
-  const [soldierId, setSoldierId] = useState(''); const [serviceId, setServiceId] = useState(''); const [date, setDate] = useState('')
-  const [start, setStart] = useState('08:00'); const [end, setEnd] = useState('08:00'); const [notes, setNotes] = useState('')
-  const [filterSoldier, setFilterSoldier] = useState(''); const [filterService, setFilterService] = useState(''); const [filterMonth, setFilterMonth] = useState('')
-  const base = isAdmin ? shifts : shifts.filter((s) => s.soldier_id === mySoldierId)
-  const visible = base.filter((s) => (!filterSoldier || s.soldier_id === filterSoldier) && (!filterService || s.service_type_id === filterService) && (!filterMonth || s.service_date.startsWith(filterMonth)))
-
-  async function createShift(event: FormEvent) {
-    event.preventDefault()
-    const blocked = unavailabilities.find((u) => u.soldier_id === soldierId && date >= u.start_date && date <= u.end_date)
-    if (blocked) return alert(`Militar indisponível nesta data (${labelType(blocked.type)}).`)
-    if (shifts.some((s) => s.soldier_id === soldierId && s.service_date === date && s.status !== 'cancelado')) return alert('Militar já possui serviço ativo nesta data.')
-    const { error } = await supabase.from('shifts').insert({ soldier_id: soldierId, service_type_id: serviceId, service_date: date, start_time: start, end_time: end, notes: notes || null })
-    if (error) return alert(error.message)
-    setDate(''); setNotes(''); await onChanged()
-  }
-
-  async function cancelShift(id: string) {
-    if (!confirm('Cancelar este serviço da escala?')) return
-    const { error } = await supabase.from('shifts').update({ status: 'cancelado' }).eq('id', id)
-    if (error) return alert(error.message)
-    await onChanged()
-  }
-
-  function changeService(id: string) { setServiceId(id); const item = services.find((s) => s.id === id); if (item?.default_start) setStart(item.default_start.slice(0, 5)); if (item?.default_end) setEnd(item.default_end.slice(0, 5)) }
-  function exportCsv() {
-    const header = ['Data', 'Militar', 'Serviço', 'Início', 'Fim', 'Status']
-    const rows = visible.map((s) => [s.service_date, `${s.soldiers?.rank || ''} ${s.soldiers?.war_name || s.soldiers?.full_name || ''}`.trim(), s.service_types?.name || '', formatTime(s.start_time), formatTime(s.end_time), s.status])
-    const csv = [header, ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(';')).join('\n')
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = `escala-${filterMonth || 'completa'}.csv`; anchor.click(); URL.revokeObjectURL(url)
-  }
-
-  return <section className="content-stack">
-    {isAdmin && <form className="panel form-grid no-print" onSubmit={createShift}><div className="panel-heading full"><div><p className="eyebrow">Nova escala</p><h2>Adicionar serviço</h2></div></div><label>Militar<select value={soldierId} onChange={(e) => setSoldierId(e.target.value)} required><option value="">Selecione</option>{soldiers.filter((s) => s.active).map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label><label>Serviço<select value={serviceId} onChange={(e) => changeService(e.target.value)} required><option value="">Selecione</option>{services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Data<input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label><label>Início<input type="time" value={start} onChange={(e) => setStart(e.target.value)} required /></label><label>Fim<input type="time" value={end} onChange={(e) => setEnd(e.target.value)} required /></label><label className="wide">Observação<input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" /></label><button className="primary-button fit"><Plus size={16} /> Adicionar</button></form>}
-    <div className="panel print-panel"><div className="panel-heading"><div><p className="eyebrow">Consulta</p><h2>{isAdmin ? 'Escala geral' : 'Meus serviços'}</h2></div><div className="row-actions no-print"><button className="small-button" onClick={exportCsv}><Download size={14} /> CSV</button><button className="small-button" onClick={() => window.print()}><Printer size={14} /> Imprimir</button></div></div><div className="filter-grid no-print">{isAdmin && <label>Militar<select value={filterSoldier} onChange={(e) => setFilterSoldier(e.target.value)}><option value="">Todos</option>{soldiers.map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label>}<label>Serviço<select value={filterService} onChange={(e) => setFilterService(e.target.value)}><option value="">Todos</option>{services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label>Mês<input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} /></label></div><ShiftTable shifts={visible} onCancel={isAdmin ? cancelShift : undefined} /></div>
-  </section>
+function EmptyState({ icon, title, description, action }: { icon: React.ReactNode; title: string; description: string; action?: React.ReactNode }) {
+  return <div className="empty-state"><div className="empty-icon">{icon}</div><h3>{title}</h3><p>{description}</p>{action}</div>
 }
 
-function SoldiersPanel({ soldiers, profiles, shifts, isAdmin, onChanged }: { soldiers: Soldier[]; profiles: Profile[]; shifts: Shift[]; isAdmin: boolean; onChanged: () => Promise<void> }) {
-  const [name, setName] = useState(''); const [rank, setRank] = useState(''); const [warName, setWarName] = useState(''); const [organization, setOrganization] = useState(''); const [profileId, setProfileId] = useState('')
-  async function addSoldier(event: FormEvent) { event.preventDefault(); const { data, error } = await supabase.from('soldiers').insert({ full_name: name, rank, war_name: warName || null, organization: organization || null }).select('id').single(); if (error) return alert(error.message); if (profileId && data?.id) { const { error: linkError } = await supabase.from('profiles').update({ soldier_id: data.id }).eq('id', profileId); if (linkError) return alert(`Militar criado, mas o vínculo falhou: ${linkError.message}`) } setName(''); setRank(''); setWarName(''); setOrganization(''); setProfileId(''); await onChanged() }
-  if (!isAdmin) return <EmptyState title="Acesso administrativo" text="O cadastro de militares é disponível apenas para administradores." />
-  return <section className="content-stack"><form className="panel form-grid" onSubmit={addSoldier}><div className="panel-heading full"><div><p className="eyebrow">Efetivo</p><h2>Cadastrar militar</h2></div></div><label>Nome completo<input value={name} onChange={(e) => setName(e.target.value)} required /></label><label>Posto/graduação<input value={rank} onChange={(e) => setRank(e.target.value)} placeholder="Ex.: 3º Sgt" required /></label><label>Nome de guerra<input value={warName} onChange={(e) => setWarName(e.target.value)} /></label><label>Organização/Seção<input value={organization} onChange={(e) => setOrganization(e.target.value)} /></label><label className="wide">Vincular conta<select value={profileId} onChange={(e) => setProfileId(e.target.value)}><option value="">Nenhuma conta</option>{profiles.filter((p) => !p.soldier_id).map((p) => <option key={p.id} value={p.id}>{p.full_name || p.id}</option>)}</select></label><button className="primary-button fit"><Plus size={16} /> Cadastrar</button></form><div className="panel"><div className="panel-heading"><div><p className="eyebrow">Cadastros</p><h2>Militares e histórico</h2></div><span className="pill">{soldiers.length}</span></div><div className="cards-list">{soldiers.map((s) => { const history = shifts.filter((shift) => shift.soldier_id === s.id && shift.status !== 'cancelado'); const last = [...history].sort((a, b) => b.service_date.localeCompare(a.service_date))[0]; return <article className="person-row" key={s.id}><div className="avatar">{(s.war_name || s.full_name).slice(0, 1)}</div><div><strong>{s.rank} {s.war_name || s.full_name}</strong><span>{s.full_name} {s.organization ? `• ${s.organization}` : ''}</span><span>{history.length} serviço(s){last ? ` • último: ${formatDate(last.service_date)}` : ''}</span></div><span className={s.active ? 'status success' : 'status'}>{s.active ? 'Ativo' : 'Inativo'}</span></article> })}</div></div></section>
+function LoadingScreen() { return <div className="center-page"><div className="loader" /><p>Carregando...</p></div> }
+function LoadingBlock() { return <div className="loading-block"><div className="loader" /><span>Atualizando dados...</span></div> }
+
+function calculateStandings(teams: Team[], matches: Match[]): Standing[] {
+  const map = new Map<string, Standing>()
+  teams.forEach((team) => map.set(team.id, { team, points: 0, played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, goalDiff: 0 }))
+
+  matches.filter((match) => match.status === 'finalizado' && match.home_score !== null && match.away_score !== null).forEach((match) => {
+    const home = map.get(match.home_team_id); const away = map.get(match.away_team_id)
+    if (!home || !away) return
+    const hs = match.home_score as number; const as = match.away_score as number
+    home.played += 1; away.played += 1
+    home.goalsFor += hs; home.goalsAgainst += as
+    away.goalsFor += as; away.goalsAgainst += hs
+    if (hs > as) { home.wins += 1; home.points += 3; away.losses += 1 }
+    else if (as > hs) { away.wins += 1; away.points += 3; home.losses += 1 }
+    else { home.draws += 1; away.draws += 1; home.points += 1; away.points += 1 }
+  })
+
+  const rows = [...map.values()]
+  rows.forEach((row) => { row.goalDiff = row.goalsFor - row.goalsAgainst })
+  return rows.sort((a, b) => b.points - a.points || b.wins - a.wins || b.goalDiff - a.goalDiff || b.goalsFor - a.goalsFor || a.team.name.localeCompare(b.team.name))
 }
 
-function ServicesPanel({ services, isAdmin, onChanged }: { services: ServiceType[]; isAdmin: boolean; onChanged: () => Promise<void> }) {
-  const [name, setName] = useState(''); const [description, setDescription] = useState(''); const [start, setStart] = useState('08:00'); const [end, setEnd] = useState('08:00')
-  async function addService(event: FormEvent) { event.preventDefault(); const { error } = await supabase.from('service_types').insert({ name, description: description || null, default_start: start, default_end: end }); if (error) return alert(error.message); setName(''); setDescription(''); await onChanged() }
-  return <section className="content-stack">{isAdmin && <form className="panel form-grid" onSubmit={addService}><div className="panel-heading full"><div><p className="eyebrow">Configuração</p><h2>Novo tipo de serviço</h2></div></div><label>Nome<input value={name} onChange={(e) => setName(e.target.value)} required /></label><label>Descrição<input value={description} onChange={(e) => setDescription(e.target.value)} /></label><label>Início padrão<input type="time" value={start} onChange={(e) => setStart(e.target.value)} /></label><label>Fim padrão<input type="time" value={end} onChange={(e) => setEnd(e.target.value)} /></label><button className="primary-button fit"><Plus size={16} /> Criar serviço</button></form>}<div className="panel"><div className="panel-heading"><div><p className="eyebrow">Tipos disponíveis</p><h2>Serviços</h2></div></div><div className="service-grid">{services.map((s) => <article className="service-card" key={s.id}><ClipboardList size={20} /><strong>{s.name}</strong><p>{s.description || 'Sem descrição.'}</p><span>{formatTime(s.default_start)} — {formatTime(s.default_end)}</span></article>)}</div></div></section>
+function initials(name: string) { return name.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') }
+function formatDate(value: string | null) { if (!value) return 'Sem data'; return new Intl.DateTimeFormat('pt-BR').format(new Date(`${value}T12:00:00`)) }
+function formatDateTime(value: string | null) { if (!value) return 'Data a definir'; return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) }
+function translateAuthError(message: string) {
+  const normalized = message.toLowerCase()
+  if (normalized.includes('invalid login credentials')) return 'E-mail ou senha incorretos.'
+  if (normalized.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar.'
+  if (normalized.includes('user already registered')) return 'Este e-mail já está cadastrado.'
+  if (normalized.includes('password should be')) return 'A senha não atende aos requisitos mínimos.'
+  return message
 }
-
-function UnavailabilityPanel({ items, soldiers, isAdmin, mySoldierId, onChanged }: { items: Unavailability[]; soldiers: Soldier[]; isAdmin: boolean; mySoldierId: string | null; onChanged: () => Promise<void> }) {
-  const [soldierId, setSoldierId] = useState(''); const [type, setType] = useState('ferias'); const [startDate, setStartDate] = useState(''); const [endDate, setEndDate] = useState(''); const [reason, setReason] = useState('')
-  const visible = isAdmin ? items : items.filter((i) => i.soldier_id === mySoldierId)
-  async function add(event: FormEvent) { event.preventDefault(); const { error } = await supabase.from('unavailabilities').insert({ soldier_id: soldierId, type, start_date: startDate, end_date: endDate, reason: reason || null }); if (error) return alert(error.message); setStartDate(''); setEndDate(''); setReason(''); await onChanged() }
-  async function remove(id: string) { if (!confirm('Remover este impedimento?')) return; const { error } = await supabase.from('unavailabilities').delete().eq('id', id); if (error) return alert(error.message); await onChanged() }
-  return <section className="content-stack">{isAdmin && <form className="panel form-grid" onSubmit={add}><div className="panel-heading full"><div><p className="eyebrow">Disponibilidade</p><h2>Novo impedimento</h2></div></div><label>Militar<select value={soldierId} onChange={(e) => setSoldierId(e.target.value)} required><option value="">Selecione</option>{soldiers.filter((s) => s.active).map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label><label>Tipo<select value={type} onChange={(e) => setType(e.target.value)}><option value="ferias">Férias</option><option value="missao">Missão</option><option value="curso">Curso</option><option value="afastamento">Afastamento</option><option value="dispensa">Dispensa</option><option value="outro">Outro</option></select></label><label>Início<input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required /></label><label>Fim<input type="date" min={startDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} required /></label><label className="wide">Observação<input value={reason} onChange={(e) => setReason(e.target.value)} /></label><button className="primary-button fit"><Plus size={16} /> Registrar</button></form>}<div className="panel"><div className="panel-heading"><div><p className="eyebrow">Períodos</p><h2>{isAdmin ? 'Impedimentos cadastrados' : 'Meus impedimentos'}</h2></div></div><div className="cards-list">{visible.length === 0 ? <p className="muted">Nenhum impedimento cadastrado.</p> : visible.map((item) => { const soldier = soldiers.find((s) => s.id === item.soldier_id); return <article className="swap-row" key={item.id}><div><strong>{soldier ? `${soldier.rank} ${soldier.war_name || soldier.full_name}` : 'Militar'}</strong><span>{labelType(item.type)} • {formatDate(item.start_date)} até {formatDate(item.end_date)}{item.reason ? ` • ${item.reason}` : ''}</span></div><span className={item.end_date >= new Date().toISOString().slice(0, 10) ? 'status danger' : 'status'}>{item.end_date >= new Date().toISOString().slice(0, 10) ? 'Ativo' : 'Encerrado'}</span>{isAdmin && <button className="small-button" onClick={() => void remove(item.id)}>Remover</button>}</article> })}</div></div></section>
-}
-
-function SwapsPanel({ swaps, shifts, soldiers, profile, isAdmin, onChanged }: { swaps: SwapRequest[]; shifts: Shift[]; soldiers: Soldier[]; profile: Profile | null; isAdmin: boolean; onChanged: () => Promise<void> }) {
-  const [shiftId, setShiftId] = useState(''); const [targetId, setTargetId] = useState(''); const [reason, setReason] = useState('')
-  const mySoldierId = profile?.soldier_id ?? null
-  const eligible = shifts.filter((s) => s.soldier_id === mySoldierId && s.service_date >= new Date().toISOString().slice(0, 10) && s.status !== 'cancelado')
-
-  async function requestSwap(event: FormEvent) {
-    event.preventDefault()
-    if (!targetId) return alert('Escolha o militar que receberá a solicitação de troca.')
-    const { error } = await supabase.from('swap_requests').insert({ shift_id: shiftId, target_soldier_id: targetId, reason })
-    if (error) return alert(error.message)
-    setShiftId(''); setTargetId(''); setReason(''); await onChanged()
-  }
-
-  async function respond(id: string, accepted: boolean) {
-    const { error } = await supabase.from('swap_requests').update({ target_accepted: accepted }).eq('id', id)
-    if (error) return alert(error.message)
-    await onChanged()
-  }
-
-  async function review(id: string, status: 'aprovada' | 'recusada') {
-    const { error } = await supabase.from('swap_requests').update({ status, reviewed_at: new Date().toISOString() }).eq('id', id)
-    if (error) return alert(error.message)
-    await onChanged()
-  }
-
-  return <section className="content-stack">
-    {!isAdmin && <form className="panel form-grid" onSubmit={requestSwap}><div className="panel-heading full"><div><p className="eyebrow">Solicitação</p><h2>Pedir troca de serviço</h2></div></div>{!mySoldierId ? <div className="notice full">Sua conta ainda não foi vinculada a um cadastro de militar. Solicite o vínculo ao administrador.</div> : <><label>Meu serviço<select value={shiftId} onChange={(e) => setShiftId(e.target.value)} required><option value="">Selecione</option>{eligible.map((s) => <option key={s.id} value={s.id}>{formatDate(s.service_date)} • {s.service_types?.name}</option>)}</select></label><label>Trocar com<select value={targetId} onChange={(e) => setTargetId(e.target.value)} required><option value="">Selecione</option>{soldiers.filter((s) => s.id !== mySoldierId && s.active).map((s) => <option key={s.id} value={s.id}>{s.rank} {s.war_name || s.full_name}</option>)}</select></label><label className="wide">Motivo<textarea value={reason} onChange={(e) => setReason(e.target.value)} required /></label><button className="primary-button fit"><RefreshCw size={16} /> Enviar pedido</button></>}</form>}
-    <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Histórico</p><h2>{isAdmin ? 'Pedidos de troca' : 'Solicitações de troca'}</h2></div></div><div className="cards-list">{swaps.length === 0 ? <p className="muted">Nenhuma solicitação encontrada.</p> : swaps.map((swap) => {
-      const shift = shifts.find((s) => s.id === swap.shift_id)
-      const target = soldiers.find((s) => s.id === swap.target_soldier_id)
-      const isTarget = !!mySoldierId && swap.target_soldier_id === mySoldierId
-      const targetLabel = swap.target_accepted === true ? 'Substituto aceitou' : swap.target_accepted === false ? 'Substituto recusou' : 'Aguardando substituto'
-      return <article className="swap-row" key={swap.id}><div><strong>{shift ? `${formatDate(shift.service_date)} • ${shift.service_types?.name ?? 'Serviço'}` : 'Serviço'}</strong><span>{swap.reason}{target ? ` • Substituto: ${target.rank} ${target.war_name || target.full_name}` : ''}</span><span>{targetLabel}</span></div><span className={`status ${swap.status === 'aprovada' ? 'success' : swap.status === 'recusada' || swap.target_accepted === false ? 'danger' : ''}`}>{swap.status}</span>{!isAdmin && isTarget && swap.status === 'pendente' && swap.target_accepted === null && <div className="row-actions"><button className="small-button success-button" onClick={() => void respond(swap.id, true)}><CheckCircle2 size={14} /> Aceitar</button><button className="small-button" onClick={() => void respond(swap.id, false)}>Recusar</button></div>}{isAdmin && swap.status === 'pendente' && <div className="row-actions"><button className="small-button success-button" disabled={swap.target_accepted !== true} title={swap.target_accepted !== true ? 'O substituto precisa aceitar primeiro.' : ''} onClick={() => void review(swap.id, 'aprovada')}><CheckCircle2 size={14} /> Aprovar</button><button className="small-button" onClick={() => void review(swap.id, 'recusada')}>Recusar</button></div>}</article>
-    })}</div></div>
-  </section>
-}
-
-function ShiftTable({ shifts, onCancel }: { shifts: Shift[]; onCancel?: (id: string) => Promise<void> }) {
-  if (shifts.length === 0) return <p className="muted">Nenhum serviço cadastrado.</p>
-  return <div className="table-wrap"><table><thead><tr><th>Data</th><th>Militar</th><th>Serviço</th><th>Horário</th><th>Status</th>{onCancel && <th className="no-print">Ação</th>}</tr></thead><tbody>{shifts.map((shift) => <tr key={shift.id}><td>{formatDate(shift.service_date)}</td><td><strong>{shift.soldiers?.rank} {shift.soldiers?.war_name || shift.soldiers?.full_name}</strong></td><td>{shift.service_types?.name}</td><td>{formatTime(shift.start_time)} – {formatTime(shift.end_time)}</td><td><span className={shift.status === 'confirmado' || shift.status === 'concluido' ? 'status success' : shift.status === 'cancelado' ? 'status danger' : 'status'}>{shift.status}</span></td>{onCancel && <td className="no-print">{shift.status !== 'cancelado' && <button className="small-button" onClick={() => void onCancel(shift.id)}>Cancelar</button>}</td>}</tr>)}</tbody></table></div>
-}
-
-function EmptyState({ title, text }: { title: string; text: string }) { return <div className="panel empty-state"><ShieldCheck size={32} /><h2>{title}</h2><p>{text}</p></div> }
-function LoadingScreen() { return <div className="loading-screen"><ShieldCheck size={36} /><span>Carregando sistema...</span></div> }
-function LoadingBlock() { return <div className="panel muted">Carregando dados...</div> }
-function formatDate(value: string) { return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(`${value}T12:00:00`)) }
-function formatTime(value: string | null) { return value ? value.slice(0, 5) : '--:--' }
-function labelType(value: string) { return ({ ferias: 'Férias', missao: 'Missão', curso: 'Curso', afastamento: 'Afastamento', dispensa: 'Dispensa', outro: 'Outro' } as Record<string, string>)[value] || value }
