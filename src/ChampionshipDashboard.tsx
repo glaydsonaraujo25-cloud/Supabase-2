@@ -1099,6 +1099,7 @@ function Teams({
     [pname, setPname] = useState(""),
     [shirt, setShirt] = useState(""),
     [position, setPosition] = useState(""),
+    [playerSearch, setPlayerSearch] = useState(""),
     [feedback, setFeedback] = useState("");
   if (!championship)
     return (
@@ -1117,6 +1118,21 @@ function Teams({
     isFull = teams.length >= championship.max_teams;
   async function edit(values: Record<string, string>) {
     if (!editing) return;
+    if (!values.name.trim()) throw new Error("Informe o nome.");
+    if (editing.kind === "player" && values.shirt_number) {
+      const number = Number(values.shirt_number);
+      if (!Number.isInteger(number) || number < 0 || number > 99)
+        throw new Error("A camisa deve ser um número inteiro entre 0 e 99.");
+      if (
+        players.some(
+          (p) =>
+            p.team_id === (editing.item as Player).team_id &&
+            p.id !== editing.item.id &&
+            p.shirt_number === number,
+        )
+      )
+        throw new Error("Esse número de camisa já está em uso neste time.");
+    }
     const data =
       editing.kind === "team"
         ? {
@@ -1161,6 +1177,15 @@ function Teams({
   }
   async function addPlayer(e: FormEvent, teamId: string) {
     e.preventDefault();
+    setFeedback("");
+    if (!pname.trim()) return setFeedback("Informe o nome do jogador.");
+    if (
+      shirt &&
+      (!Number.isInteger(Number(shirt)) ||
+        Number(shirt) < 0 ||
+        Number(shirt) > 99)
+    )
+      return setFeedback("A camisa deve ser um número inteiro entre 0 e 99.");
     const roster = players.filter((p) => p.team_id === teamId);
     if (shirt && roster.some((p) => p.shirt_number === Number(shirt)))
       return setFeedback("Esse número de camisa já está em uso neste time.");
@@ -1300,13 +1325,29 @@ function Teams({
         {teams.map((t) => {
           const roster = players.filter((p) => p.team_id === t.id),
             expanded = open === t.id,
+            search = playerSearch
+              .trim()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .toLocaleLowerCase("pt-BR"),
+            visiblePlayers = roster.filter((p) =>
+              `${p.name} ${p.position || ""} ${p.shirt_number ?? ""}`
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLocaleLowerCase("pt-BR")
+                .includes(search),
+            ),
             canManage = isOwner || t.manager_user_id === userId;
           return (
             <article className="team-card" key={t.id}>
               <div className="team-summary">
                 <button
                   className="team-main"
-                  onClick={() => setOpen(expanded ? "" : t.id)}
+                  aria-expanded={expanded}
+                  onClick={() => {
+                    setOpen(expanded ? "" : t.id);
+                    setPlayerSearch("");
+                  }}
                 >
                   <span className="badge">
                     {t.short_name || initials(t.name)}
@@ -1340,11 +1381,26 @@ function Teams({
               </div>
               {expanded && (
                 <div className="roster">
+                  <label>
+                    Buscar jogador por nome, posição ou camisa
+                    <input
+                      type="search"
+                      value={playerSearch}
+                      onChange={(e) => setPlayerSearch(e.target.value)}
+                    />
+                  </label>
+                  <p className="muted" role="status">
+                    {visiblePlayers.length} de {roster.length} jogadores
+                  </p>
                   <div>
                     {roster.length === 0 ? (
                       <p className="muted">Nenhum jogador cadastrado.</p>
+                    ) : visiblePlayers.length === 0 ? (
+                      <p className="muted">
+                        Nenhum jogador encontrado para esta busca.
+                      </p>
                     ) : (
-                      roster.map((p) => (
+                      visiblePlayers.map((p) => (
                         <div className="player-row" key={p.id}>
                           <b>{p.shirt_number ?? "—"}</b>
                           <span>
@@ -1383,6 +1439,7 @@ function Teams({
                     >
                       <input
                         value={pname}
+                        aria-label="Nome do jogador"
                         onChange={(e) => setPname(e.target.value)}
                         placeholder="Nome do jogador"
                         required
@@ -1392,11 +1449,13 @@ function Teams({
                         min={0}
                         max={99}
                         value={shirt}
+                        aria-label="Número da camisa"
                         onChange={(e) => setShirt(e.target.value)}
                         placeholder="Nº"
                       />
                       <input
                         value={position}
+                        aria-label="Posição"
                         onChange={(e) => setPosition(e.target.value)}
                         placeholder="Posição"
                       />
