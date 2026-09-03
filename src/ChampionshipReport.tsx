@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { useState } from "react";
 import { useModal } from "./lib/useModal";
 import { calculateStandings, matchStatus } from "./lib/competition";
 import { groupTables, hasGroups } from "./lib/groups";
@@ -14,6 +15,7 @@ export type ReportProps = ResultsProps & {
   onClose: () => void;
 };
 export default function ChampionshipReport(props: ReportProps) {
+  const [includeRosters, setIncludeRosters] = useState(true);
   const { championship, teams, matches, players, events, onClose } = props,
     ref = useModal(onClose);
   const tables = hasGroups(teams)
@@ -26,6 +28,15 @@ export default function ChampionshipReport(props: ReportProps) {
       ];
   const names = new Map(teams.map((t) => [t.id, t.name]));
   const scorers = topScorers(players, events, matches);
+  const status =
+    (
+      {
+        rascunho: "Rascunho",
+        aberto: "Inscrições abertas",
+        em_andamento: "Em andamento",
+        finalizado: "Finalizado",
+      } as Record<string, string>
+    )[championship.status] || "Status não informado";
   return createPortal(
     <section
       ref={ref}
@@ -41,6 +52,14 @@ export default function ChampionshipReport(props: ReportProps) {
         <button className="btn secondary" onClick={onClose}>
           Fechar relatório
         </button>
+        <label>
+          <input
+            type="checkbox"
+            checked={includeRosters}
+            onChange={(e) => setIncludeRosters(e.target.checked)}
+          />
+          Incluir elencos
+        </label>
         <p>
           Na janela de impressão, escolha Salvar como PDF. O relatório inclui
           todos os jogos, sem os filtros da tela.
@@ -49,7 +68,7 @@ export default function ChampionshipReport(props: ReportProps) {
       <header>
         <h1>{championship.name}</h1>
         <p>
-          {championship.sport} · {championship.format} · {championship.status}
+          {championship.sport} · {championship.format} · {status}
         </p>
         <p>
           Emitido em {new Date().toLocaleString("pt-BR")} · {teams.length} times
@@ -134,6 +153,59 @@ export default function ChampionshipReport(props: ReportProps) {
           <p>Nenhum gol atribuído a jogadores em partidas finalizadas.</p>
         )}
       </section>
+      {includeRosters && (
+        <section>
+          <h2>Elencos dos times</h2>
+          <p>
+            Jogadores cadastrados atualmente. Esta lista não representa
+            escalação confirmada nem o elenco histórico de cada partida.
+          </p>
+          {teams.length === 0 && <p>Nenhum time cadastrado.</p>}
+          {[...teams]
+            .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+            .map((team) => {
+              const roster = players
+                .filter((p) => p.team_id === team.id)
+                .sort(
+                  (a, b) =>
+                    (a.shirt_number ?? Infinity) -
+                      (b.shirt_number ?? Infinity) ||
+                    a.name.localeCompare(b.name, "pt-BR"),
+                );
+              return (
+                <section key={team.id} className="report-roster">
+                  <h3>
+                    {team.name} · {roster.length} jogadores
+                  </h3>
+                  {roster.length === 0 ? (
+                    <p>Nenhum jogador cadastrado.</p>
+                  ) : (
+                    <div className="report-table">
+                      <table aria-label={`Elenco de ${team.name}`}>
+                        <thead>
+                          <tr>
+                            <th scope="col">Camisa</th>
+                            <th scope="col">Jogador</th>
+                            <th scope="col">Posição</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {roster.map((p) => (
+                            <tr key={p.id}>
+                              <td>{p.shirt_number ?? "—"}</td>
+                              <th scope="row">{p.name}</th>
+                              <td>{p.position || "Não informada"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+        </section>
+      )}
       {championship.regulations && (
         <section>
           <h2>Regulamento</h2>
