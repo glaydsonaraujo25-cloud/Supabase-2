@@ -63,6 +63,10 @@ Execute apenas os upgrades ainda não instalados, na ordem indicada acima, sem e
 
 ### Ferramentas de gestão
 
+Em telas de até 760px, as ferramentas ficam em um menu expansível; no computador, os atalhos continuam visíveis. O controle informa seu estado a leitores de tela, e o seletor de campeonato tem um nome acessível. O menu recolhe ao trocar de campeonato.
+
+Testes de interface com dados simulados cobrem a visão de participante: ausência de ferramentas exclusivas do organizador, edição somente do próprio time, inscrição quando há aprovação obrigatória e leitura do regulamento. Esses testes não substituem RLS nem uma sessão ponta a ponta com conta real; a conferência visual em celular continua pendente.
+
 O painel não indica líder antes de existir ao menos um resultado válido na classificação. Jogos agendados, cancelados ou apenas eliminatórios não estabelecem liderança por pontos.
 
 Os diálogos de edição, regulamento e nova edição pedem confirmação antes de descartar mudanças ao fechar ou pressionar Esc. Também registram um aviso de saída da página enquanto há alterações; sua exibição depende do navegador, especialmente em celulares. Isso não é salvamento automático nem proteção universal para todos os formulários. Após salvar, o aviso é removido. A revisão segue as orientações de React para registrar e remover o evento apenas enquanto necessário.

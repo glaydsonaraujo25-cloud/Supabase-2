@@ -1,5 +1,6 @@
 import PrivateChampionshipResults from "./PrivateChampionshipResults";
 import LoadBoundary from "./LoadBoundary";
+import ToolsNavigation from "./ToolsNavigation";
 import PrivateMatchDetails from "./PrivateMatchDetails";
 import GroupManager from "./GroupManager";
 import GroupStandings from "./GroupStandings";
@@ -337,8 +338,7 @@ export default function ChampionshipDashboard() {
             </button>
           ))}
           {selected && (
-            <>
-              <span className="cm-nav-section">FERRAMENTAS</span>
+            <ToolsNavigation key={selected.id}>
               {[
                 ["participantes", "Participantes"],
                 ["estatisticas", "Estatísticas"],
@@ -371,7 +371,7 @@ export default function ChampionshipDashboard() {
                     {label}
                   </button>
                 ))}
-            </>
+            </ToolsNavigation>
           )}
         </nav>
         <div className="cm-account">
@@ -396,6 +396,7 @@ export default function ChampionshipDashboard() {
           <div className="cm-top-actions">
             {championships.length > 0 && (
               <select
+                aria-label="Campeonato selecionado"
                 value={selectedId}
                 onChange={(e) => selectChampionship(e.target.value)}
               >
