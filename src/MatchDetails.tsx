@@ -3,6 +3,8 @@ import { matchStatus } from "./lib/competition";
 import "./match-details.css";
 
 export type DetailMatch = {
+  venue?: string | null;
+  duration_minutes?: number | null;
   id: string;
   championship_id: string;
   home_team_id: string;
@@ -121,6 +123,12 @@ export default function MatchDetails({
               timeStyle: "short",
             })
           : "Sem horário definido"}
+      </p>
+      <p>
+        Local: {match.venue || "Não definido"}
+        {match.duration_minutes
+          ? ` · Duração prevista: ${match.duration_minutes} minutos`
+          : ""}
       </p>
       <div className="detail-score" aria-label="Placar">
         {hasScore ? `${match.home_score} × ${match.away_score}` : "— × —"}

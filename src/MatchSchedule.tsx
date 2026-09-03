@@ -1,3 +1,4 @@
+import { scheduleConflicts, type ScheduledGame } from "./lib/scheduling";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { supabase } from "./lib/supabase";
 import { matchStatus } from "./lib/competition";
@@ -8,7 +9,7 @@ export function localDateTime(value: string | null) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
-type Match = {
+type Match = ScheduledGame & {
   id: string;
   scheduled_at: string | null;
   status: string;
@@ -21,17 +22,40 @@ export default function MatchSchedule({
   title,
   onClose,
   onSaved,
+  games = [],
+  teams = [],
+  scheduleOnly = false,
 }: {
+  games?: ScheduledGame[];
+  teams?: { id: string; name: string }[];
+  scheduleOnly?: boolean;
   match: Match;
   title: string;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
+  const [venue, setVenue] = useState(match.venue || ""),
+    [duration, setDuration] = useState(
+      match.duration_minutes?.toString() || "",
+    );
   const dialog = useRef<HTMLDialogElement>(null);
   const [date, setDate] = useState(localDateTime(match.scheduled_at)),
     [status, setStatus] = useState(match.status),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const conflicts = scheduleConflicts(
+    {
+      ...match,
+      venue,
+      duration_minutes: duration ? Number(duration) : null,
+      status,
+      scheduled_at:
+        date && Number.isFinite(Date.parse(date))
+          ? new Date(date).toISOString()
+          : null,
+    },
+    games,
+  );
   useEffect(() => {
     dialog.current?.showModal();
     return () => dialog.current?.close();
@@ -57,7 +81,9 @@ export default function MatchSchedule({
         .from("matches")
         .update({
           scheduled_at: date ? new Date(date).toISOString() : null,
-          status,
+          ...(scheduleOnly ? {} : { status }),
+          venue: venue.trim() || null,
+          duration_minutes: duration ? Number(duration) : null,
         })
         .eq("id", match.id)
         .eq("status", match.status)
@@ -102,21 +128,78 @@ export default function MatchSchedule({
           Horário local do seu dispositivo. Deixe vazio para definir depois.
         </small>
         <label>
-          Status da partida
-          <select value={status} onChange={(e) => setStatus(e.target.value)}>
-            {["agendado", "em_andamento", "finalizado", "cancelado"].map(
-              (s) => (
-                <option
-                  key={s}
-                  value={s}
-                  disabled={s === "finalizado" && match.status !== "finalizado"}
-                >
-                  {matchStatus(s)}
-                </option>
-              ),
-            )}
-          </select>
+          Local da partida
+          <input
+            maxLength={200}
+            value={venue}
+            onChange={(e) => setVenue(e.target.value)}
+            placeholder="Ex.: Quadra do Centro"
+            list="match-venues"
+          />
         </label>
+        <datalist id="match-venues">
+          {[...new Set(games.map((g) => g.venue).filter(Boolean))].map((v) => (
+            <option key={v!} value={v!} />
+          ))}
+        </datalist>
+        <label>
+          Duração prevista (minutos)
+          <input
+            type="number"
+            min={1}
+            max={1440}
+            step={1}
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            placeholder="Opcional"
+          />
+        </label>
+        <small>
+          Avisos consideram os jogos carregados deste campeonato. Sem duração,
+          só é possível comparar o início com horários conhecidos. Use o mesmo
+          nome para o mesmo local.
+        </small>
+        {conflicts.length > 0 && (
+          <div className="notice" role="status">
+            <strong>Possível conflito de horário</strong>
+            <ul>
+              {conflicts.map(({ game, sharedTeam, sharedVenue }) => (
+                <li key={game.id}>
+                  {teams.find((t) => t.id === game.home_team_id)?.name ||
+                    "Time"}{" "}
+                  ×{" "}
+                  {teams.find((t) => t.id === game.away_team_id)?.name ||
+                    "Time"}{" "}
+                  · {new Date(game.scheduled_at!).toLocaleString("pt-BR")} ·{" "}
+                  {sharedTeam ? "mesmo time" : ""}
+                  {sharedTeam && sharedVenue ? " e " : ""}
+                  {sharedVenue ? "mesmo local" : ""}
+                </li>
+              ))}
+            </ul>
+            <p>Revise os horários antes de salvar.</p>
+          </div>
+        )}
+        {!scheduleOnly && (
+          <label>
+            Status da partida
+            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+              {["agendado", "em_andamento", "finalizado", "cancelado"].map(
+                (s) => (
+                  <option
+                    key={s}
+                    value={s}
+                    disabled={
+                      s === "finalizado" && match.status !== "finalizado"
+                    }
+                  >
+                    {matchStatus(s)}
+                  </option>
+                ),
+              )}
+            </select>
+          </label>
+        )}
         {match.status === "finalizado" && status !== "finalizado" && (
           <p className="notice">
             O placar será preservado, mas esta partida deixará de contar na

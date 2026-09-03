@@ -107,7 +107,10 @@ export default function ChampionshipAgenda({
                 <strong>
                   {name(m.home_team_id)} × {name(m.away_team_id)}
                 </strong>
-                <small>{m.bracket_stage || `Rodada ${m.round}`}</small>
+                <small>
+                  {m.bracket_stage || `Rodada ${m.round}`}
+                  {m.venue ? ` · ${m.venue}` : ""}
+                </small>
               </div>
             </li>
           ))}

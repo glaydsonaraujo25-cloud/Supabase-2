@@ -1,4 +1,6 @@
 export type AgendaMatch = {
+  venue?: string | null;
+  duration_minutes?: number | null;
   id: string;
   home_team_id: string;
   away_team_id: string;
@@ -73,6 +75,12 @@ export function buildCalendar(
       `DTSTART:${timestamp(new Date(match.scheduled_at!))}`,
       `SUMMARY:${textValue(`${names.get(match.home_team_id) || "Time"} × ${names.get(match.away_team_id) || "Time"}`)}`,
       `DESCRIPTION:${textValue(`${championship.name} · ${match.bracket_stage || `Rodada ${match.round}`}\nConfira alterações de horário no Bracketly. Esta cópia não atualiza automaticamente.`)}`,
+      ...(match.venue ? [`LOCATION:${textValue(match.venue)}`] : []),
+      ...(match.duration_minutes && match.duration_minutes > 0
+        ? [
+            `DTEND:${timestamp(new Date(Date.parse(match.scheduled_at!) + match.duration_minutes * 60000))}`,
+          ]
+        : []),
       "STATUS:CONFIRMED",
       "END:VEVENT",
     );

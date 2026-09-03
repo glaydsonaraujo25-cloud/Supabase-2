@@ -38,6 +38,8 @@ type P = {
   position: string | null;
 };
 type M = {
+  venue?: string | null;
+  duration_minutes?: number | null;
   bracket_stage: string | null;
   penalty_home_score: number | null;
   penalty_away_score: number | null;
@@ -97,7 +99,7 @@ export default function PublicChampionship({ slug }: { slug: string }) {
           supabase
             .from("matches")
             .select(
-              "id,championship_id,home_team_id,away_team_id,round,scheduled_at,status,home_score,away_score,bracket_stage,penalty_home_score,penalty_away_score",
+              "id,championship_id,home_team_id,away_team_id,round,scheduled_at,venue,duration_minutes,status,home_score,away_score,bracket_stage,penalty_home_score,penalty_away_score",
             )
             .eq("championship_id", champ.id)
             .order("round")

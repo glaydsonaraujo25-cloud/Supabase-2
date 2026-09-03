@@ -74,6 +74,8 @@ type Player = {
   created_at: string;
 };
 type Match = {
+  venue?: string | null;
+  duration_minutes?: number | null;
   bracket_stage: string | null;
   penalty_home_score: number | null;
   penalty_away_score: number | null;
@@ -432,6 +434,7 @@ export default function ChampionshipDashboard() {
                 championship={selected}
                 teams={selectedTeams}
                 onKnockout={() => setTool("mata-mata")}
+                allMatches={selectedMatches}
                 matches={selectedMatches.filter(isLeagueMatch)}
                 isOwner={isOwner}
                 reload={() => loadData(selectedId)}
@@ -1319,6 +1322,7 @@ function Teams({
 }
 
 function Matches({
+  allMatches,
   onKnockout,
   championship,
   teams,
@@ -1326,6 +1330,7 @@ function Matches({
   isOwner,
   reload,
 }: {
+  allMatches: Match[];
   onKnockout: () => void;
   championship: Championship | null;
   teams: Team[];
@@ -1469,6 +1474,8 @@ function Matches({
       )}
       {editing && (
         <MatchSchedule
+          games={allMatches}
+          teams={teams}
           match={editing}
           title={`${teamName(editing.home_team_id)} × ${teamName(editing.away_team_id)}`}
           onClose={() => setEditing(null)}

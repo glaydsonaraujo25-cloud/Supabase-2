@@ -1,3 +1,4 @@
+import MatchSchedule from "./MatchSchedule";
 import PrivateMatchDetails from "./PrivateMatchDetails";
 import { hasGroups } from "./lib/groups";
 import { fetchAll } from "./lib/data";
@@ -22,6 +23,8 @@ type Team = {
   short_name: string | null;
 };
 type Match = {
+  venue?: string | null;
+  duration_minutes?: number | null;
   scheduled_at?: string | null;
   id: string;
   championship_id: string;
@@ -52,6 +55,7 @@ export default function KnockoutCenter({
   championshipId: string;
   onClose: () => void;
 }) {
+  const [scheduling, setScheduling] = useState<Match | null>(null);
   const [details, setDetails] = useState<Match | null>(null);
   const [session, setSession] = useState<Session | null>(null),
     [open, setOpen] = useState(true),
@@ -272,6 +276,20 @@ export default function KnockoutCenter({
   if (!session) return null;
   return (
     <>
+      {scheduling && (
+        <MatchSchedule
+          match={{
+            ...scheduling,
+            scheduled_at: scheduling.scheduled_at || null,
+          }}
+          games={selectedMatches}
+          teams={selectedTeams}
+          scheduleOnly
+          title={`${teamName(scheduling.home_team_id, selectedTeams)} × ${teamName(scheduling.away_team_id, selectedTeams)}`}
+          onClose={() => setScheduling(null)}
+          onSaved={() => load()}
+        />
+      )}
       {details && (
         <PrivateMatchDetails
           key={details.id}
@@ -379,6 +397,7 @@ export default function KnockoutCenter({
                               key={m.id}
                               match={m}
                               teams={selectedTeams}
+                              schedule={() => setScheduling(m)}
                               details={() => setDetails(m)}
                               editable={isOwner}
                               onSave={saveResult}
@@ -398,12 +417,14 @@ export default function KnockoutCenter({
 }
 
 function KnockoutMatch({
+  schedule,
   details,
   match,
   teams,
   editable,
   onSave,
 }: {
+  schedule: () => void;
   details: () => void;
   match: Match;
   teams: Team[];
@@ -433,6 +454,15 @@ function KnockoutMatch({
   }
   return (
     <form className="bracket-match" onSubmit={submit}>
+      {editable && (
+        <button
+          type="button"
+          className="btn secondary small"
+          onClick={schedule}
+        >
+          Agendar partida
+        </button>
+      )}
       <button type="button" className="btn secondary small" onClick={details}>
         Ver detalhes
       </button>

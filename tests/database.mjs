@@ -14,6 +14,9 @@ try {
   await db.exec(
     await readFile("supabase/upgrades/championship_groups.sql", "utf8"),
   );
+  await db.exec(
+    await readFile("supabase/upgrades/match_locations.sql", "utf8"),
+  );
   const groupResult = await db.exec(
     await readFile("supabase/tests/championship_groups.sql", "utf8"),
   );

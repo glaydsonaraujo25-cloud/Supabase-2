@@ -41,12 +41,13 @@ Execute no SQL Editor, nesta ordem:
 1. `supabase/schema.sql`: estrutura completa, sem dados de usuários, incluindo tabelas legadas necessárias à compatibilidade.
 2. `supabase/upgrades/championship_integrity.sql`: permissões e regras de integridade do Bracketly.
 3. `supabase/upgrades/championship_groups.sql`: distribuição de grupos, rodadas e classificação para o mata-mata.
+4. `supabase/upgrades/match_locations.sql`: local e duração prevista das partidas.
 
 O snapshot foi reconstruído do banco conectado e testado em uma instância PostgreSQL local. Não execute `schema.sql` sobre um banco já existente.
 
 ### Projeto Bracketly que já possui campeonatos
 
-Execute `supabase/upgrades/championship_integrity.sql` e depois `supabase/upgrades/championship_groups.sql`. O script é transacional e pode ser reaplicado. Ele não exclui campeonatos, times, partidas ou usuários. Essa atualização foi aplicada ao projeto Supabase-2 durante a entrega.
+Execute `supabase/upgrades/championship_integrity.sql` e depois `supabase/upgrades/championship_groups.sql` e `supabase/upgrades/match_locations.sql`. O script é transacional e pode ser reaplicado. Ele não exclui campeonatos, times, partidas ou usuários. Essa atualização foi aplicada ao projeto Supabase-2 durante a entrega.
 
 Os arquivos antigos em `supabase/migrations/` pertencem ao sistema de escalas anterior; não os reaplique após instalar o snapshot. Nenhuma tabela legada é apagada nesta atualização.
 
@@ -123,3 +124,9 @@ Campeonatos existentes não são redistribuídos nem têm resultados apagados. O
 Use **Ver detalhes** na lista de partidas, nos confrontos do mata-mata ou na página pública. A tela reúne status, rodada/grupo, horário, placar, pênaltis, eventos em ordem de minuto e elencos atuais. Eventos sem minuto aparecem ao final. O elenco cadastrado não representa uma escalação confirmada.
 
 Os registros de gols e assistências continuam separados do lançamento do placar, na central de Estatísticas. A tela de detalhes é de consulta e respeita as permissões já existentes; no painel, os registros são carregados ao abrir, com opção de tentar novamente em caso de falha.
+
+## Locais e conflitos de horário
+
+Em **Gerenciar partida**, informe o local e, se desejar, a duração prevista em minutos. No mata-mata, use **Agendar partida**; essa opção altera apenas o agendamento, preservando o resultado. O local aparece na agenda e nos detalhes, inclusive públicos, e na exportação `.ics`. A duração informada define o horário de término do evento exportado.
+
+Os avisos de conflito comparam times e locais nos jogos carregados do mesmo campeonato. Use o mesmo nome para o mesmo local (maiúsculas e espaços extras são ignorados). Partidas canceladas não geram aviso. Jogos sem duração não recebem um término presumido: apenas o início pode ser comparado com intervalos conhecidos. Não há consulta a outros campeonatos ou reserva de quadras; os avisos não bloqueiam o salvamento.

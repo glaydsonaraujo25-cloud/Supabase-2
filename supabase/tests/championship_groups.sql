@@ -13,6 +13,9 @@ insert into public.teams(championship_id,name) select current_setting('test.cham
 select pg_temp.reject(format('select public.configure_championship_groups(%L,''{}''::jsonb)',current_setting('test.champ')));
 select public.configure_championship_groups(current_setting('test.champ')::uuid,(select jsonb_object_agg(id,case when name in ('Time 1','Time 2','Time 3') then 'A' else 'B' end) from public.teams where championship_id=current_setting('test.champ')::uuid));
 select public.generate_group_matches(current_setting('test.champ')::uuid);
+update public.matches set venue='Quadra A',duration_minutes=60 where championship_id=current_setting('test.champ')::uuid;
+select pg_temp.reject(format('update public.matches set duration_minutes=0 where championship_id=%L',current_setting('test.champ')));
+select pg_temp.reject(format('update public.matches set venue=repeat(''x'',201) where championship_id=%L',current_setting('test.champ')));
 select pg_temp.assert_ok((select count(*)=6 from public.matches where championship_id=current_setting('test.champ')::uuid),'six unique games for two three-team groups');
 select pg_temp.assert_ok(not exists(select 1 from public.matches m join public.teams h on h.id=m.home_team_id join public.teams a on a.id=m.away_team_id where m.championship_id=current_setting('test.champ')::uuid and h.group_name<>a.group_name),'no cross-group games');
 select pg_temp.assert_ok(not exists(select round,team from (select round,home_team_id team from public.matches where championship_id=current_setting('test.champ')::uuid union all select round,away_team_id from public.matches where championship_id=current_setting('test.champ')::uuid) x group by round,team having count(*)>1),'one game per team per round');
