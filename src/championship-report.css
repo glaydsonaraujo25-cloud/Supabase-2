@@ -1,0 +1,98 @@
+.championship-report {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: auto;
+  background: white;
+  color: #18231d;
+  padding: 24px max(16px, calc((100vw - 1080px) / 2));
+  line-height: 1.5;
+}
+.championship-report > section {
+  margin: 24px 0;
+}
+.report-toolbar {
+  position: sticky;
+  top: -24px;
+  background: white;
+  padding: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid #dbe4de;
+  z-index: 1;
+}
+.report-toolbar p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.report-table {
+  overflow-x: auto;
+}
+.report-table table {
+  min-width: 650px;
+}
+.championship-report details {
+  display: none;
+}
+.championship-report h1 {
+  overflow-wrap: anywhere;
+}
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+  body:has(> .championship-report) > *:not(.championship-report) {
+    display: none !important;
+  }
+  .championship-report {
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    width: auto !important;
+    padding: 0 !important;
+    z-index: auto !important;
+    font-size: 10pt;
+  }
+  .report-toolbar {
+    display: none !important;
+  }
+  .championship-report .standings-scroll,
+  .report-table {
+    overflow: visible !important;
+  }
+  .championship-report table {
+    min-width: 0 !important;
+    width: 100%;
+    font-size: 9pt;
+  }
+  .championship-report th,
+  .championship-report td {
+    font-size: 9pt;
+    padding: 5px;
+  }
+  .championship-report thead {
+    display: table-header-group;
+  }
+  .championship-report tr {
+    break-inside: avoid;
+  }
+  .championship-report h2,
+  .championship-report h3 {
+    break-after: avoid;
+  }
+  .championship-report .form-result {
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
+  }
+  .championship-results,
+  .result-podium article {
+    break-inside: avoid;
+  }
+  .championship-report * {
+    box-shadow: none !important;
+  }
+}

@@ -11,11 +11,14 @@ import {
   matchStatus,
   calculateStandings,
 } from "./lib/competition";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, lazy } from "react";
+import LoadBoundary from "./LoadBoundary";
 import { RefreshCw, Trophy } from "lucide-react";
 import { publicSupabase as supabase } from "./lib/supabase";
+const ChampionshipReport = lazy(() => import("./ChampionshipReport"));
 
 type C = {
+  regulations?: string;
   id: string;
   name: string;
   sport: string;
@@ -65,6 +68,7 @@ type E = {
 };
 
 export default function PublicChampionship({ slug }: { slug: string }) {
+  const [report, setReport] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [teamFilter, setTeamFilter] = useState(""),
     [statusFilter, setStatusFilter] = useState("");
@@ -81,7 +85,7 @@ export default function PublicChampionship({ slug }: { slug: string }) {
     try {
       const { data: champ, error: failure } = await supabase
         .from("championships")
-        .select("id,name,sport,format,status,public_slug")
+        .select("id,name,sport,format,status,public_slug,regulations")
         .eq("public_slug", slug)
         .eq("is_public", true)
         .maybeSingle();
@@ -139,6 +143,7 @@ export default function PublicChampionship({ slug }: { slug: string }) {
   }
   useEffect(() => {
     setDetailId(null);
+    setReport(false);
     void load();
   }, [slug]);
   const table = useMemo(
@@ -189,6 +194,21 @@ export default function PublicChampionship({ slug }: { slug: string }) {
         </button>
       </header>
       <main>
+        <button className="btn secondary" onClick={() => setReport(true)}>
+          Relatório / PDF
+        </button>
+        {report && (
+          <LoadBoundary onClose={() => setReport(false)}>
+            <ChampionshipReport
+              championship={c}
+              teams={teams}
+              matches={matches}
+              players={players}
+              events={events}
+              onClose={() => setReport(false)}
+            />
+          </LoadBoundary>
+        )}
         <section className="public-hero">
           <span>{label(c.status)}</span>
           <h1>{c.name}</h1>
@@ -196,6 +216,12 @@ export default function PublicChampionship({ slug }: { slug: string }) {
             {c.sport} · {c.format}
           </p>
         </section>
+        <details className="public-card">
+          <summary>Regulamento do campeonato</summary>
+          <div className="regulations-text">
+            {c.regulations || "O organizador ainda não publicou o regulamento."}
+          </div>
+        </details>
         <ChampionshipResults
           championship={c}
           teams={teams}

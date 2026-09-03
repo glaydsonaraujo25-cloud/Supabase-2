@@ -1,5 +1,5 @@
 import PrivateChampionshipResults from "./PrivateChampionshipResults";
-import AuditCenter from "./AuditCenter";
+import LoadBoundary from "./LoadBoundary";
 import PrivateMatchDetails from "./PrivateMatchDetails";
 import GroupManager from "./GroupManager";
 import GroupStandings from "./GroupStandings";
@@ -11,7 +11,7 @@ import MatchSchedule from "./MatchSchedule";
 import MatchFilters from "./MatchFilters";
 import { matchStatus } from "./lib/competition";
 import AuthScreen from "./AuthScreen";
-import { FormEvent, useEffect, useMemo, useState, useRef } from "react";
+import { FormEvent, useEffect, useMemo, useState, useRef, lazy } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   CalendarDays,
@@ -30,10 +30,6 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import ParticipantAdminCenter from "./ParticipantAdminCenter";
-import SharingCenter from "./SharingCenter";
-import StatisticsCenter from "./StatisticsCenter";
-import KnockoutCenter from "./KnockoutCenter";
 import EditDialog from "./EditDialog";
 import { fetchAll } from "./lib/data";
 import {
@@ -42,8 +38,21 @@ import {
   validScore,
 } from "./lib/competition";
 import { siteUrl, supabase } from "./lib/supabase";
+const ParticipantAdminCenter = lazy(() => import("./ParticipantAdminCenter"));
+const SharingCenter = lazy(() => import("./SharingCenter"));
+const StatisticsCenter = lazy(() => import("./StatisticsCenter"));
+const KnockoutCenter = lazy(() => import("./KnockoutCenter"));
+const AuditCenter = lazy(() => import("./AuditCenter"));
+const AdmissionsCenter = lazy(() => import("./AdmissionsCenter"));
+const RegulationsCenter = lazy(() => import("./RegulationsCenter"));
+const NewEdition = lazy(() => import("./NewEdition"));
+const PrivateChampionshipReport = lazy(
+  () => import("./PrivateChampionshipReport"),
+);
 
 type Championship = {
+  regulations?: string;
+  requires_team_approval?: boolean;
   id: string;
   owner_id: string;
   name: string;
@@ -336,13 +345,20 @@ export default function ChampionshipDashboard() {
                 ["compartilhar", "Compartilhar"],
                 ["mata-mata", "Mata-mata"],
                 ["historico", "Histórico"],
+                ["inscricoes", "Inscrições"],
+                ["regulamento", "Regulamento"],
+                ["relatorio", "Relatório / PDF"],
+                ["nova-edicao", "Nova edição"],
               ]
                 .filter(
                   ([id]) =>
                     (isOwner ||
-                      !["participantes", "compartilhar", "historico"].includes(
-                        id,
-                      )) &&
+                      ![
+                        "participantes",
+                        "compartilhar",
+                        "historico",
+                        "nova-edicao",
+                      ].includes(id)) &&
                     (id !== "mata-mata" ||
                       selected.format !== "Pontos corridos"),
                 )
@@ -481,42 +497,82 @@ export default function ChampionshipDashboard() {
           </>
         )}
       </main>
-      {tool === "participantes" && (
-        <ParticipantAdminCenter
-          championshipId={selectedId}
-          onClose={() => {
-            setTool("");
-            void loadData(selectedId);
-          }}
-        />
-      )}
-      {tool === "compartilhar" && (
-        <SharingCenter
-          championshipId={selectedId}
-          onClose={() => setTool("")}
-        />
-      )}
-      {tool === "estatisticas" && (
-        <StatisticsCenter
-          championshipId={selectedId}
-          onClose={() => {
-            setTool("");
-            void loadData(selectedId);
-          }}
-        />
-      )}
-      {tool === "mata-mata" && (
-        <KnockoutCenter
-          championshipId={selectedId}
-          onClose={() => {
-            setTool("");
-            void loadData(selectedId);
-          }}
-        />
-      )}
-      {tool === "historico" && (
-        <AuditCenter championshipId={selectedId} onClose={() => setTool("")} />
-      )}
+      <LoadBoundary key={`${selectedId}-${tool}`} onClose={() => setTool("")}>
+        {tool === "participantes" && (
+          <ParticipantAdminCenter
+            championshipId={selectedId}
+            onClose={() => {
+              setTool("");
+              void loadData(selectedId);
+            }}
+          />
+        )}
+        {tool === "compartilhar" && (
+          <SharingCenter
+            championshipId={selectedId}
+            onClose={() => setTool("")}
+          />
+        )}
+        {tool === "estatisticas" && (
+          <StatisticsCenter
+            championshipId={selectedId}
+            onClose={() => {
+              setTool("");
+              void loadData(selectedId);
+            }}
+          />
+        )}
+        {tool === "mata-mata" && (
+          <KnockoutCenter
+            championshipId={selectedId}
+            onClose={() => {
+              setTool("");
+              void loadData(selectedId);
+            }}
+          />
+        )}
+        {tool === "historico" && (
+          <AuditCenter
+            championshipId={selectedId}
+            onClose={() => setTool("")}
+          />
+        )}
+        {selected && tool === "inscricoes" && (
+          <AdmissionsCenter
+            championship={selected}
+            isOwner={isOwner}
+            onClose={() => setTool("")}
+            reload={() => loadData(selectedId)}
+          />
+        )}
+        {selected && tool === "regulamento" && (
+          <RegulationsCenter
+            championship={selected}
+            isOwner={isOwner}
+            onClose={() => setTool("")}
+            reload={() => loadData(selectedId)}
+          />
+        )}
+        {selected && isOwner && tool === "nova-edicao" && (
+          <NewEdition
+            championship={selected}
+            onClose={() => setTool("")}
+            onCreated={async (id) => {
+              await loadData(id);
+              setTab("inicio");
+            }}
+          />
+        )}
+        {selected && tool === "relatorio" && (
+          <PrivateChampionshipReport
+            championship={selected}
+            teams={selectedTeams}
+            matches={selectedMatches}
+            players={selectedPlayers}
+            onClose={() => setTool("")}
+          />
+        )}
+      </LoadBoundary>
     </div>
   );
 }
@@ -1053,7 +1109,7 @@ function Teams({
       />
     );
   const myTeam = teams.find((t) => t.manager_user_id === userId),
-    canCreate = isOwner || !myTeam;
+    canCreate = isOwner || (!myTeam && !championship.requires_team_approval);
   async function edit(values: Record<string, string>) {
     if (!editing) return;
     const data =
@@ -1172,6 +1228,12 @@ function Teams({
           onClose={() => setEditing(null)}
         />
       )}{" "}
+      {!isOwner && championship.requires_team_approval && !myTeam && (
+        <p className="notice">
+          Este campeonato exige aprovação. Abra Inscrições no menu para
+          solicitar a entrada do seu time.
+        </p>
+      )}
       {canCreate && (
         <form className="panel team-form" onSubmit={addTeam}>
           <div>

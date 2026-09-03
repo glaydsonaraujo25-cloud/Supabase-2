@@ -43,12 +43,21 @@ Execute no SQL Editor, nesta ordem:
 3. `supabase/upgrades/championship_groups.sql`: distribuição de grupos, rodadas e classificação para o mata-mata.
 4. `supabase/upgrades/match_locations.sql`: local e duração prevista das partidas.
 5. `supabase/upgrades/championship_audit.sql`: histórico imutável de alterações por campeonato.
+6. `supabase/upgrades/championship_management.sql`: regulamento, inscrições com aprovação e nova edição. Aplicar uma única vez, após os upgrades anteriores.
 
 O snapshot foi reconstruído do banco conectado e testado em uma instância PostgreSQL local. Não execute `schema.sql` sobre um banco já existente.
 
 ### Projeto Bracketly que já possui campeonatos
 
-Execute `supabase/upgrades/championship_integrity.sql` e depois `supabase/upgrades/championship_groups.sql` e `supabase/upgrades/match_locations.sql`. O script é transacional e pode ser reaplicado. Ele não exclui campeonatos, times, partidas ou usuários. Essa atualização foi aplicada ao projeto Supabase-2 durante a entrega.
+Execute apenas os upgrades ainda não instalados, na ordem indicada acima, sem executar o snapshot. O upgrade de gestão preserva campeonatos, times, partidas e usuários existentes; a aprovação de inscrições começa desativada.
+
+### Ferramentas de gestão
+
+- **Inscrições:** o organizador pode exigir aprovação. Participantes que já entraram pelo convite solicitam um time enquanto o campeonato está aberto; o organizador aprova ou rejeita. A aprovação cria o time atomicamente, respeitando vagas e permissões. Visitantes não acessam solicitações.
+- **Regulamento:** o organizador edita até 20 mil caracteres. O texto aparece também na página pública quando o campeonato é público; não altera as regras automáticas de pontuação.
+- **Relatório / PDF:** reúne classificação, partidas, artilharia e regulamento. Use “Imprimir / Salvar PDF” e escolha o destino PDF do navegador. Inclui todos os jogos, independentemente dos filtros da tela.
+- **Nova edição:** copia as configurações e, opcionalmente, nomes, siglas e cidades dos times. Começa como rascunho privado, sem datas, com novo convite. Não copia jogadores, responsáveis, membros, grupos, partidas ou resultados; o original permanece intacto.
+- **Carregamento e celular:** ferramentas carregam sob demanda, com indicação de carregamento e tratamento de falhas. Menus e ações se ajustam a telas estreitas, com controles de toque maiores e acesso à saída da conta.
 
 Os arquivos antigos em `supabase/migrations/` pertencem ao sistema de escalas anterior; não os reaplique após instalar o snapshot. Nenhuma tabela legada é apagada nesta atualização.
 

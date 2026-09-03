@@ -20,6 +20,9 @@ try {
   await db.exec(
     await readFile("supabase/upgrades/championship_audit.sql", "utf8"),
   );
+  await db.exec(await readFile("supabase/upgrades/championship_management.sql", "utf8"));
+  const managementResult=await db.exec(await readFile("supabase/tests/championship_management.sql", "utf8"));
+  console.log(managementResult.flatMap(r=>r.rows).filter(r=>r.test_result));
   const auditResult = await db.exec(
     await readFile("supabase/tests/championship_audit.sql", "utf8"),
   );

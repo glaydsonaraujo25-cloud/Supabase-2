@@ -1,3 +1,4 @@
+import "./statistics.css";
 import { calculateStandings } from "./lib/competition";
 import { fetchAll } from "./lib/data";
 import { useModal } from "./lib/useModal";

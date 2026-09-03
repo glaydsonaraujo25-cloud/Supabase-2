@@ -1,3 +1,4 @@
+import "./knockout.css";
 import MatchSchedule from "./MatchSchedule";
 import PrivateMatchDetails from "./PrivateMatchDetails";
 import { hasGroups } from "./lib/groups";

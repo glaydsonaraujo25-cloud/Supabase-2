@@ -1,0 +1,182 @@
+.management-dialog {
+  width: min(760px, calc(100% - 24px));
+  max-height: 88dvh;
+  overflow: auto;
+  border: 1px solid #d8e4dc;
+  border-radius: 16px;
+  padding: 24px;
+  color: #25392c;
+  background: #fff;
+}
+.management-dialog::backdrop {
+  background: #10271bb3;
+}
+.management-dialog > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+.management-dialog h2 {
+  margin: 0 0 16px;
+}
+.management-dialog label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+.management-dialog form {
+  display: grid;
+  gap: 14px;
+}
+.management-dialog textarea {
+  resize: vertical;
+  min-height: 130px;
+  width: 100%;
+  font: inherit;
+  border: 1px solid #ccd9d0;
+  border-radius: 8px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+.management-dialog .checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.checkbox-line input {
+  width: 20px;
+  height: 20px;
+}
+.regulations-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.request-list {
+  list-style: none;
+  padding: 0;
+}
+.request-list > li {
+  border: 1px solid #dce7df;
+  border-radius: 12px;
+  padding: 14px;
+  margin: 12px 0;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+}
+.request-list p {
+  margin: 5px 0;
+}
+.request-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.load-notice {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #fff;
+  border: 1px solid #d4dfd8;
+  border-radius: 12px;
+  padding: 18px;
+  z-index: 1500;
+  max-width: calc(100vw - 40px);
+}
+/* Keep scroll inside tables, not across the full phone viewport. */
+.cm-main,
+.panel,
+.public-card,
+.team-card,
+.management-dialog {
+  min-width: 0;
+}
+.cm-topbar h1,
+.champ-card h3,
+.public-hero h1,
+.team-main strong,
+.match-info strong {
+  overflow-wrap: anywhere;
+}
+.management-dialog input,
+.management-dialog select {
+  min-width: 0;
+  max-width: 100%;
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #388b5d;
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .management-dialog {
+    padding: 16px;
+  }
+  .management-dialog input,
+  .management-dialog select,
+  .management-dialog textarea {
+    font-size: 16px;
+  }
+  .btn,
+  .icon-btn {
+    min-height: 44px;
+  }
+  .icon-btn {
+    min-width: 44px;
+  }
+  .request-list > li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .request-actions > .btn {
+    flex: 1;
+  }
+  .cm-sidebar nav {
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 6px;
+  }
+  .cm-sidebar .cm-nav {
+    flex: 0 1 auto;
+    min-height: 44px;
+  }
+  .cm-sidebar .cm-nav-section {
+    flex-basis: 100%;
+  }
+  .cm-account {
+    display: flex !important;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #d4dfd8;
+  }
+  .cm-account > div {
+    min-width: 0;
+  }
+  .cm-account small {
+    overflow-wrap: anywhere;
+  }
+  .management-dialog > .page-actions {
+    align-items: stretch;
+  }
+  .event-form {
+    grid-template-columns: 1fr !important;
+  }
+  .stats-modal,
+  .knockout-modal {
+    width: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+    max-height: 88dvh;
+  }
+  .audit-list li {
+    overflow-wrap: anywhere;
+  }
+  .share-switch input:focus-visible + span {
+    outline: 3px solid #388b5d;
+    outline-offset: 3px;
+  }
+}
