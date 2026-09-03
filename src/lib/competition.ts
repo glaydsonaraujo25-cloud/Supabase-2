@@ -19,7 +19,16 @@ export function validScore(value: string) {
   );
 }
 
+export type FormResult = {
+  result: "V" | "E" | "D";
+  round?: number;
+  opponent: string;
+  score: string;
+};
+
 export type ScoreMatch = {
+  id?: string;
+  round?: number;
   home_team_id: string;
   away_team_id: string;
   status: string;
@@ -44,10 +53,15 @@ export function calculateStandings<T extends { id: string; name: string }>(
         goalsFor: 0,
         goalsAgainst: 0,
         goalDiff: 0,
+        percentage: null as number | null,
+        form: [] as FormResult[],
       },
     ]),
   );
-  for (const match of matches) {
+  for (const match of [...matches].sort(
+    (a, b) =>
+      (a.round ?? 0) - (b.round ?? 0) || (a.id ?? "").localeCompare(b.id ?? ""),
+  )) {
     if (
       !isLeagueMatch(match) ||
       match.status !== "finalizado" ||
@@ -60,6 +74,18 @@ export function calculateStandings<T extends { id: string; name: string }>(
     if (!home || !away) continue;
     const h = match.home_score,
       a = match.away_score;
+    home.form.push({
+      result: h > a ? "V" : h === a ? "E" : "D",
+      round: match.round,
+      opponent: away.team.name,
+      score: `${h} × ${a}`,
+    });
+    away.form.push({
+      result: a > h ? "V" : a === h ? "E" : "D",
+      round: match.round,
+      opponent: home.team.name,
+      score: `${a} × ${h}`,
+    });
     home.played++;
     away.played++;
     home.goalsFor += h;
@@ -81,8 +107,11 @@ export function calculateStandings<T extends { id: string; name: string }>(
       away.points++;
     }
   }
-  for (const row of rows.values())
+  for (const row of rows.values()) {
     row.goalDiff = row.goalsFor - row.goalsAgainst;
+    row.percentage = row.played ? (row.points / (row.played * 3)) * 100 : null;
+    row.form = row.form.slice(-5);
+  }
   return [...rows.values()].sort(
     (a, b) =>
       b.points - a.points ||

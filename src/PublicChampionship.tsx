@@ -1,3 +1,4 @@
+import StandingsTable from "./StandingsTable";
 import ChampionshipAgenda from "./ChampionshipAgenda";
 import MatchFilters from "./MatchFilters";
 import { fetchAll } from "./lib/data";
@@ -132,7 +133,7 @@ export default function PublicChampionship({ slug }: { slug: string }) {
     void load();
   }, [slug]);
   const table = useMemo(
-      () => standings(teams, matches.filter(isLeagueMatch)),
+      () => calculateStandings(teams, matches),
       [teams, matches],
     ),
     playerStats = useMemo(
@@ -200,40 +201,7 @@ export default function PublicChampionship({ slug }: { slug: string }) {
             {c.format === "Mata-mata" && (
               <p>Confira os confrontos e os vencedores abaixo.</p>
             )}
-            {c.format !== "Mata-mata" && (
-              <div className="public-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Time</th>
-                      <th>PTS</th>
-                      <th>J</th>
-                      <th>V</th>
-                      <th>E</th>
-                      <th>D</th>
-                      <th>SG</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {table.map((r, i) => (
-                      <tr key={r.id}>
-                        <td>{i + 1}</td>
-                        <td>{r.name}</td>
-                        <td>
-                          <b>{r.pts}</b>
-                        </td>
-                        <td>{r.j}</td>
-                        <td>{r.v}</td>
-                        <td>{r.e}</td>
-                        <td>{r.d}</td>
-                        <td>{r.sg}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            {c.format !== "Mata-mata" && <StandingsTable rows={table} />}
           </article>
           <article className="public-card">
             <h2>Times</h2>
@@ -378,18 +346,4 @@ function stats(ps: P[], ts: T[], es: E[]) {
       red: e.filter((x) => x.event_type === "red_card").length,
     };
   });
-}
-function standings(ts: T[], ms: M[]) {
-  return calculateStandings(ts, ms).map((r) => ({
-    id: r.team.id,
-    name: r.team.name,
-    pts: r.points,
-    j: r.played,
-    v: r.wins,
-    e: r.draws,
-    d: r.losses,
-    gp: r.goalsFor,
-    gc: r.goalsAgainst,
-    sg: r.goalDiff,
-  }));
 }

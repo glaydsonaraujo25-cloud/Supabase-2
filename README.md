@@ -96,3 +96,9 @@ Os filtros por time e status estão disponíveis na aba Partidas e na página p�
 A visão geral e a página pública mostram próximas partidas, jogos em andamento e partidas que aguardam horário ou atualização. O filtro por time também seleciona os jogos do arquivo **Baixar agenda (.ics)**. A lista mostra cinco jogos por vez, mas a exportação inclui todos os confrontos futuros agendados da seleção, inclusive eliminatórias.
 
 O arquivo usa UTC para preservar o horário ao importar em outro fuso. Não inventa duração das partidas e não inclui jogos cancelados, finalizados, passados ou sem horário. A importação é manual e não estabelece sincronização: confirme alterações no Bracketly e atualize seu calendário. Formato baseado no [padrão iCalendar (RFC 5545)](https://www.rfc-editor.org/rfc/rfc5545).
+
+## Classificação detalhada
+
+O painel e a página pública usam a mesma tabela, com gols pró/contra, saldo, aproveitamento e até cinco resultados por time. O aproveitamento divide os pontos conquistados pelos pontos possíveis nos jogos finalizados; times sem jogos mostram um traço.
+
+A sequência usa partidas finalizadas da fase de pontos, em ordem crescente de rodada (identificador da partida como ordem estável dentro da mesma rodada). Não representa a ordem cronológica em que partidas adiadas foram realizadas. Jogos cancelados, em andamento e eliminatórias não entram no cálculo. A seção expansível da tabela explica as siglas e os critérios de ordenação.

@@ -1,0 +1,66 @@
+.standings-details {
+  min-width: 0;
+}
+.standings-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.standings-scroll:focus-visible {
+  outline: 2px solid #246b48;
+  outline-offset: 2px;
+}
+.standings-scroll table {
+  min-width: 760px;
+}
+.standings-scroll caption {
+  text-align: left;
+  font-size: 13px;
+  color: #526157;
+  padding: 8px 0;
+}
+.standings-scroll th[scope="row"] {
+  color: #25392c;
+  font-size: 14px;
+  text-align: left;
+  min-width: 120px;
+}
+.standing-form {
+  display: inline-flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+.form-result {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.form-V {
+  color: #155535;
+  background: #dff3e7;
+}
+.form-E {
+  color: #664b0b;
+  background: #fff1c6;
+}
+.form-D {
+  color: #8a2424;
+  background: #fce3e3;
+}
+.standings-note,
+.standings-details details {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #526157;
+}
+.standings-details summary {
+  cursor: pointer;
+  color: #245f40;
+  font-weight: 700;
+}
+.public-columns > .public-card {
+  min-width: 0;
+}

@@ -1,3 +1,5 @@
+import StandingsTable from "./StandingsTable";
+import type { FormResult } from "./lib/competition";
 import ChampionshipAgenda from "./ChampionshipAgenda";
 import MatchSchedule from "./MatchSchedule";
 import MatchFilters from "./MatchFilters";
@@ -100,6 +102,8 @@ type Standing = {
   goalsFor: number;
   goalsAgainst: number;
   goalDiff: number;
+  percentage: number | null;
+  form: FormResult[];
 };
 
 const nav = [
@@ -1670,48 +1674,7 @@ function Standings({
         </div>
         <span>3 pontos por vitória</span>
       </div>
-      {rows.length === 0 ? (
-        <p className="muted">Cadastre os times para montar a tabela.</p>
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Time</th>
-                <th>PTS</th>
-                <th>J</th>
-                <th>V</th>
-                <th>E</th>
-                <th>D</th>
-                <th>GP</th>
-                <th>GC</th>
-                <th>SG</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.team.id}>
-                  <td>{i + 1}</td>
-                  <td>
-                    <strong>{r.team.name}</strong>
-                  </td>
-                  <td>
-                    <b>{r.points}</b>
-                  </td>
-                  <td>{r.played}</td>
-                  <td>{r.wins}</td>
-                  <td>{r.draws}</td>
-                  <td>{r.losses}</td>
-                  <td>{r.goalsFor}</td>
-                  <td>{r.goalsAgainst}</td>
-                  <td>{r.goalDiff}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <StandingsTable rows={rows} />
     </div>
   );
 }
