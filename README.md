@@ -63,6 +63,10 @@ Execute apenas os upgrades ainda não instalados, na ordem indicada acima, sem e
 
 ### Ferramentas de gestão
 
+O painel não indica líder antes de existir ao menos um resultado válido na classificação. Jogos agendados, cancelados ou apenas eliminatórios não estabelecem liderança por pontos.
+
+Os diálogos de edição, regulamento e nova edição pedem confirmação antes de descartar mudanças ao fechar ou pressionar Esc. Também registram um aviso de saída da página enquanto há alterações; sua exibição depende do navegador, especialmente em celulares. Isso não é salvamento automático nem proteção universal para todos os formulários. Após salvar, o aviso é removido. A revisão segue as orientações de React para registrar e remover o evento apenas enquanto necessário.
+
 - **Inscrições:** o organizador pode exigir aprovação. Participantes que já entraram pelo convite solicitam um time enquanto o campeonato está aberto; o organizador aprova ou rejeita. A aprovação cria o time atomicamente, respeitando vagas e permissões. Visitantes não acessam solicitações.
 - **Regulamento:** o organizador edita até 20 mil caracteres. O texto aparece também na página pública quando o campeonato é público; não altera as regras automáticas de pontuação.
 - **Relatório / PDF:** reúne classificação, partidas, artilharia e regulamento. Use “Imprimir / Salvar PDF” e escolha o destino PDF do navegador. Inclui todos os jogos, independentemente dos filtros da tela.

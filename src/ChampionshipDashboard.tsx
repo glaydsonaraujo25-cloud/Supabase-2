@@ -645,6 +645,9 @@ function Overview({
   isOwner: boolean;
   go: (t: Tab) => void;
 }) {
+  const leader = standings.some((row) => row.played > 0)
+    ? standings[0]
+    : undefined;
   if (!championship)
     return (
       <Empty
@@ -696,13 +699,13 @@ function Overview({
           value={
             hasGroups(teams)
               ? new Set(teams.map((t) => t.group_name).filter(Boolean)).size
-              : standings[0]?.team.short_name || standings[0]?.team.name || "—"
+              : leader?.team.short_name || leader?.team.name || "—"
           }
           text={
             hasGroups(teams)
               ? "2 classificados por grupo"
-              : standings[0]
-                ? `${standings[0].points} pontos`
+              : leader
+                ? `${leader.points} pontos`
                 : "sem resultados"
           }
         />

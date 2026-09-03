@@ -1,15 +1,22 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useUnsavedChanges } from "./lib/useUnsavedChanges";
 export default function ToolDialog({
   title,
   onClose,
   children,
   busy = false,
+  dirty = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   busy?: boolean;
+  dirty?: boolean;
 }) {
+  const canClose = useUnsavedChanges(dirty);
+  const requestClose = () => {
+    if (!busy && canClose()) onClose();
+  };
   const ref = useRef<HTMLDialogElement>(null),
     id = useId();
   useEffect(() => {
@@ -24,7 +31,7 @@ export default function ToolDialog({
       aria-labelledby={id}
       onCancel={(e) => {
         e.preventDefault();
-        if (!busy) onClose();
+        requestClose();
       }}
     >
       <header>
@@ -34,7 +41,7 @@ export default function ToolDialog({
           className="icon-btn"
           disabled={busy}
           aria-label={`Fechar ${title}`}
-          onClick={onClose}
+          onClick={requestClose}
         >
           ×
         </button>

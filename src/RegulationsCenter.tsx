@@ -21,6 +21,7 @@ export default function RegulationsCenter({
   reload: () => Promise<void>;
 }) {
   const [rules, setRules] = useState(championship.regulations || ""),
+    [savedRules, setSavedRules] = useState(championship.regulations || ""),
     [busy, setBusy] = useState(false),
     [feedback, setFeedback] = useState("");
   async function save() {
@@ -35,6 +36,8 @@ export default function RegulationsCenter({
         .select("id")
         .single();
       if (error) throw error;
+      setSavedRules(rules.trim());
+      setRules(rules.trim());
       await reload();
       setFeedback("Regulamento salvo.");
     } catch (e) {
@@ -44,7 +47,12 @@ export default function RegulationsCenter({
     }
   }
   return (
-    <ToolDialog title="Regulamento" onClose={onClose} busy={busy}>
+    <ToolDialog
+      title="Regulamento"
+      onClose={onClose}
+      busy={busy}
+      dirty={isOwner && rules !== savedRules}
+    >
       <p>{championship.name}</p>
       {isOwner ? (
         <>

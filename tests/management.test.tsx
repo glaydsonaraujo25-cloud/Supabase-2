@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import NewEdition from "../src/NewEdition";
 import RegulationsCenter from "../src/RegulationsCenter";
@@ -31,6 +31,7 @@ const championship = {
   format: "Liga",
   regulations: "<script>teste</script>",
 };
+afterEach(() => vi.restoreAllMocks());
 beforeEach(() => {
   vi.clearAllMocks();
   db.rpc.mockResolvedValue({ data: "new-id", error: null });
@@ -39,6 +40,29 @@ beforeEach(() => {
 });
 
 describe("Gestão do campeonato", () => {
+  it("pede confirmação de regulamento alterado e libera fechamento após salvar", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false),
+      close = vi.fn();
+    render(
+      <RegulationsCenter
+        championship={championship}
+        isOwner
+        onClose={close}
+        reload={async () => {}}
+      />,
+    );
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Novas regras" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Fechar Regulamento" }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Salvar regulamento" }));
+    await screen.findByText("Regulamento salvo.");
+    fireEvent.click(screen.getByRole("button", { name: "Fechar Regulamento" }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
+  });
   it("limpa erro de inscrições após atualizar com sucesso", async () => {
     db.fetchAll.mockRejectedValueOnce(new Error("Falha temporária"));
     render(

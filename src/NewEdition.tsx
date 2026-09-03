@@ -18,7 +18,15 @@ export default function NewEdition({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
-    <ToolDialog title="Nova edição" onClose={onClose} busy={busy}>
+    <ToolDialog
+      title="Nova edição"
+      onClose={onClose}
+      busy={busy}
+      dirty={
+        !createdId &&
+        (name !== `${championship.name} — Nova edição`.slice(0, 100) || !copy)
+      }
+    >
       <form
         onSubmit={async (e) => {
           e.preventDefault();

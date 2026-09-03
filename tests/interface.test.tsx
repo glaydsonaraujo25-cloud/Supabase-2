@@ -62,6 +62,17 @@ it("rejects mismatching passwords before calling registration", () => {
 
 import PublicChampionship from "../src/PublicChampionship";
 import { db } from "./fixtures";
+it("não anuncia líder antes de existir resultado válido na classificação", async () => {
+  const original = [...db.matches];
+  db.matches.splice(0);
+  try {
+    render(<Dashboard />);
+    await screen.findByRole("heading", { name: "Copa da Comunidade" });
+    expect(screen.getByText("sem resultados")).toBeTruthy();
+  } finally {
+    db.matches.push(...original);
+  }
+});
 it("shows cancelled matches accurately on the public page", async () => {
   db.matches.push({
     ...db.matches[0],

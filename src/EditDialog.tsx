@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useUnsavedChanges } from "./lib/useUnsavedChanges";
 type Field = {
   name: string;
   label: string;
@@ -22,8 +23,15 @@ export default function EditDialog({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [form, setForm] = useState(values),
+    [saved, setSaved] = useState(values),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const canClose = useUnsavedChanges(
+    fields.some((f) => form[f.name] !== saved[f.name]),
+  );
+  const requestClose = () => {
+    if (!busy && canClose()) onClose();
+  };
   useEffect(() => {
     dialog.current?.showModal();
     return () => dialog.current?.close();
@@ -43,6 +51,7 @@ export default function EditDialog({
     setError("");
     try {
       await onSave(form);
+      setSaved(form);
     } catch (e) {
       setError((e as Error).message || "Não foi possível salvar.");
     } finally {
@@ -56,7 +65,7 @@ export default function EditDialog({
       aria-labelledby="edit-title"
       onCancel={(e) => {
         e.preventDefault();
-        if (!busy) onClose();
+        requestClose();
       }}
     >
       <form onSubmit={submit}>
@@ -70,6 +79,7 @@ export default function EditDialog({
               min={f.min}
               max={f.max}
               required={f.required}
+              disabled={busy}
               value={form[f.name]}
               onChange={(e) => setForm({ ...form, [f.name]: e.target.value })}
             />
@@ -85,7 +95,7 @@ export default function EditDialog({
             type="button"
             className="btn secondary"
             disabled={busy}
-            onClick={onClose}
+            onClick={requestClose}
           >
             Cancelar
           </button>
