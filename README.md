@@ -44,6 +44,15 @@ Execute no SQL Editor, nesta ordem:
 4. `supabase/upgrades/match_locations.sql`: local e duração prevista das partidas.
 5. `supabase/upgrades/championship_audit.sql`: histórico imutável de alterações por campeonato.
 6. `supabase/upgrades/championship_management.sql`: regulamento, inscrições com aprovação e nova edição. Aplicar uma única vez, após os upgrades anteriores.
+7. `supabase/upgrades/database_indexes.sql`: oito índices de chaves estrangeiras e remoção verificada de duas cópias redundantes. Pode ser reaplicado; não altera dados ou permissões. Em bancos maiores, planeje uma janela de manutenção; o script aborta se esperar mais de três segundos por um bloqueio.
+
+### Estado da verificação pós-entrega
+
+- Deploy do pacote de gestão confirmado pelo status do GitHub/Vercel; tela de acesso verificada no site publicado.
+- `test:db` verifica os índices novos, a remoção das duplicatas e a reaplicação, além dos fluxos de organizador, participante e visitante em transações de teste.
+- A revisão visual das telas internas, celular e paginação real do PDF ainda depende de acesso autenticado e de uma sessão de teste. Não confundir testes de componentes com validação visual.
+- A proteção nativa contra senhas vazadas exige Supabase Pro ou superior ([documentação](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)). Não foi ativada: a conexão disponível não oferece edição das configurações de Auth, e nenhuma mudança de plano foi autorizada.
+- Índices sem uso recente foram preservados: ausência de uso em um banco pequeno não comprova que um índice é desnecessário. Políticas permissivas sobrepostas também foram preservadas para não alterar o acesso durante uma otimização de índices.
 
 O snapshot foi reconstruído do banco conectado e testado em uma instância PostgreSQL local. Não execute `schema.sql` sobre um banco já existente.
 
