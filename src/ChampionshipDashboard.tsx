@@ -1,3 +1,4 @@
+import PrivateChampionshipResults from "./PrivateChampionshipResults";
 import PrivateMatchDetails from "./PrivateMatchDetails";
 import GroupManager from "./GroupManager";
 import GroupStandings from "./GroupStandings";
@@ -608,6 +609,13 @@ function Overview({
         </div>
         <Trophy size={70} />
       </section>
+      <PrivateChampionshipResults
+        key={`results-${championship.id}`}
+        championship={championship}
+        teams={teams}
+        matches={matches}
+        players={players}
+      />
       <section className="stats">
         <Stat
           label="Times"

@@ -130,3 +130,9 @@ Os registros de gols e assistências continuam separados do lançamento do placa
 Em **Gerenciar partida**, informe o local e, se desejar, a duração prevista em minutos. No mata-mata, use **Agendar partida**; essa opção altera apenas o agendamento, preservando o resultado. O local aparece na agenda e nos detalhes, inclusive públicos, e na exportação `.ics`. A duração informada define o horário de término do evento exportado.
 
 Os avisos de conflito comparam times e locais nos jogos carregados do mesmo campeonato. Use o mesmo nome para o mesmo local (maiúsculas e espaços extras são ignorados). Partidas canceladas não geram aviso. Jogos sem duração não recebem um término presumido: apenas o início pode ser comparado com intervalos conhecidos. Não há consulta a outros campeonatos ou reserva de quadras; os avisos não bloqueiam o salvamento.
+
+## Resumo de encerramento
+
+Ao marcar o campeonato como **Finalizado**, a visão geral e a página pública exibem campeão, vice e artilharia. Na liga, o resultado segue os critérios da classificação e exige ao menos um confronto finalizado entre cada par de times. No mata-mata, a final precisa ter vencedor, incluindo pênaltis quando necessários. Partidas ativas com resultados pendentes impedem o anúncio do campeão.
+
+A artilharia conta somente gols atribuídos a jogadores em partidas finalizadas; assistências e jogos cancelados não contam. Todos os líderes empatados aparecem. Sem eventos, a tela informa a ausência de registros; uma falha de carregamento permite tentar novamente. O resumo é calculado a partir dos dados atuais, não é um histórico imutável, e reflete correções ao recarregar.

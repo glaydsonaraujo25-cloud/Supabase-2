@@ -1,3 +1,4 @@
+import ChampionshipResults from "./ChampionshipResults";
 import MatchDetails from "./MatchDetails";
 import GroupStandings from "./GroupStandings";
 import { hasGroups } from "./lib/groups";
@@ -195,6 +196,13 @@ export default function PublicChampionship({ slug }: { slug: string }) {
             {c.sport} · {c.format}
           </p>
         </section>
+        <ChampionshipResults
+          championship={c}
+          teams={teams}
+          matches={matches}
+          players={players}
+          events={events}
+        />
         <ChampionshipAgenda
           key={c.id}
           championship={c}

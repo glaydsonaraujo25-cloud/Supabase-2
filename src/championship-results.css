@@ -1,0 +1,45 @@
+.championship-results {
+  border: 1px solid #b7d7c3;
+  border-radius: 16px;
+  background: #f1f8f3;
+  color: #25392c;
+  padding: 24px;
+  margin: 16px 0;
+}
+.championship-results h2 {
+  margin: 4px 0 20px;
+  overflow-wrap: anywhere;
+}
+.result-podium {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.result-podium article {
+  padding: 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #d8e6dc;
+}
+.result-podium article:first-child {
+  border-top: 4px solid #237444;
+}
+.result-podium span {
+  font-size: 14px;
+}
+.result-podium h3 {
+  margin: 8px 0 0;
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+.championship-results li {
+  padding: 5px 0;
+}
+@media (max-width: 520px) {
+  .result-podium {
+    grid-template-columns: 1fr;
+  }
+  .championship-results {
+    padding: 16px;
+  }
+}
