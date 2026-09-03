@@ -84,3 +84,9 @@ O GitHub Actions executa os testes e a compilação em cada push/PR. A revisão 
 - `src/lib/data.ts`: leitura paginada sem truncar resultados da API.
 
 A proteção de senhas vazadas é uma configuração separada do Supabase Auth e não é ativada pelo código do site. Consulte a [documentação do Supabase](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+## Gestão de partidas
+
+Na aba **Partidas**, use **Gerenciar partida** para mudar data, horário e status de jogos da fase classificatória. A data usa o fuso horário do dispositivo e é armazenada em UTC. Ao cancelar ou reabrir um resultado finalizado, o placar fica preservado, mas deixa de contar na classificação até nova finalização. Partidas canceladas precisam ser reabertas antes de lançar um resultado.
+
+Os filtros por time e status estão disponíveis na aba Partidas e na página pública. Eles alteram somente a lista de jogos, sem afetar o cálculo da classificação. Jogos de fases anteriores continuam protegidos quando já existe uma eliminatória dependente. O mata-mata mantém sua central específica para resultados.

@@ -1,3 +1,6 @@
+import MatchSchedule from "./MatchSchedule";
+import MatchFilters from "./MatchFilters";
+import { matchStatus } from "./lib/competition";
 import AuthScreen from "./AuthScreen";
 import { FormEvent, useEffect, useMemo, useState, useRef } from "react";
 import type { Session } from "@supabase/supabase-js";
@@ -1283,6 +1286,9 @@ function Matches({
   isOwner: boolean;
   reload: () => Promise<void>;
 }) {
+  const [editing, setEditing] = useState<Match | null>(null);
+  const [teamFilter, setTeamFilter] = useState(""),
+    [statusFilter, setStatusFilter] = useState("");
   const [roundPage, setRoundPage] = useState(0);
   const [home, setHome] = useState(""),
     [away, setAway] = useState(""),
@@ -1353,15 +1359,50 @@ function Matches({
     else await reload();
   }
   async function del(id: string) {
+    if (
+      !confirm(
+        "Excluir esta partida e seus registros? Essa ação não pode ser desfeita.",
+      )
+    )
+      return;
     const { error } = await supabase.from("matches").delete().eq("id", id);
     if (error) setFeedback(error.message);
     else await reload();
   }
-  const grouped = Array.from(new Set(matches.map((m) => m.round))).sort(
+  const filtered = matches.filter(
+    (m) =>
+      (!teamFilter ||
+        m.home_team_id === teamFilter ||
+        m.away_team_id === teamFilter) &&
+      (!statusFilter || m.status === statusFilter),
+  );
+  const grouped = Array.from(new Set(filtered.map((m) => m.round))).sort(
     (a, b) => a - b,
   );
   return (
     <div className="stack">
+      {editing && (
+        <MatchSchedule
+          match={editing}
+          title={`${teamName(editing.home_team_id)} × ${teamName(editing.away_team_id)}`}
+          onClose={() => setEditing(null)}
+          onSaved={reload}
+        />
+      )}
+      <MatchFilters
+        teams={teams}
+        team={teamFilter}
+        status={statusFilter}
+        onTeam={(v) => {
+          setTeamFilter(v);
+          setRoundPage(0);
+        }}
+        onStatus={(v) => {
+          setStatusFilter(v);
+          setRoundPage(0);
+        }}
+        count={filtered.length}
+      />
       {championship.format !== "Pontos corridos" && (
         <button className="btn secondary" onClick={onKnockout}>
           Abrir chave eliminatória
@@ -1448,10 +1489,18 @@ function Matches({
         </div>
       )}
       {feedback && <div className="notice">{feedback}</div>}
-      {matches.length === 0 ? (
+      {filtered.length === 0 ? (
         <Empty
-          title="Nenhuma partida"
-          text="As partidas aparecerão aqui quando o organizador montar a tabela."
+          title={
+            matches.length
+              ? "Nenhuma partida com esses filtros"
+              : "Nenhuma partida"
+          }
+          text={
+            matches.length
+              ? "Altere ou limpe os filtros para ver outros jogos."
+              : "As partidas aparecerão aqui quando o organizador montar a tabela."
+          }
         />
       ) : (
         <div className="rounds">
@@ -1480,10 +1529,12 @@ function Matches({
             <section className="panel" key={r}>
               <div className="panel-head">
                 <h3>Rodada {r}</h3>
-                <span>{matches.filter((m) => m.round === r).length} jogos</span>
+                <span>
+                  {filtered.filter((m) => m.round === r).length} jogos
+                </span>
               </div>
               <div className="match-list">
-                {matches
+                {filtered
                   .filter((m) => m.round === r)
                   .map((m) => (
                     <MatchRow
@@ -1492,6 +1543,7 @@ function Matches({
                       home={teamName(m.home_team_id)}
                       away={teamName(m.away_team_id)}
                       editable={isOwner}
+                      manage={() => setEditing(m)}
                       save={saveResult}
                       del={del}
                     />
@@ -1505,6 +1557,7 @@ function Matches({
   );
 }
 function MatchRow({
+  manage,
   match,
   home,
   away,
@@ -1512,6 +1565,7 @@ function MatchRow({
   save,
   del,
 }: {
+  manage: () => void;
   match: Match;
   home: string;
   away: string;
@@ -1528,6 +1582,9 @@ function MatchRow({
   return (
     <div className="match-row">
       <div className="match-info">
+        <span className={`match-state match-state-${match.status}`}>
+          {matchStatus(match.status)}
+        </span>
         <small>
           {match.scheduled_at
             ? formatDate(match.scheduled_at)
@@ -1539,9 +1596,14 @@ function MatchRow({
       </div>
       {editable ? (
         <div className="score">
+          <button className="btn secondary small" onClick={manage}>
+            Gerenciar partida
+          </button>
           <input
             type="number"
             min={0}
+            aria-label={`Placar de ${home}`}
+            disabled={match.status === "cancelado"}
             value={a}
             onChange={(e) => setA(e.target.value)}
           />
@@ -1549,11 +1611,14 @@ function MatchRow({
           <input
             type="number"
             min={0}
+            aria-label={`Placar de ${away}`}
+            disabled={match.status === "cancelado"}
             value={b}
             onChange={(e) => setB(e.target.value)}
           />
           <button
             className="btn secondary small"
+            disabled={match.status === "cancelado"}
             onClick={() => void save(match.id, a, b)}
           >
             Salvar

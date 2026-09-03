@@ -1,3 +1,4 @@
+import MatchFilters from "./MatchFilters";
 import { fetchAll } from "./lib/data";
 import {
   isLeagueMatch,
@@ -55,6 +56,8 @@ type E = {
 };
 
 export default function PublicChampionship({ slug }: { slug: string }) {
+  const [teamFilter, setTeamFilter] = useState(""),
+    [statusFilter, setStatusFilter] = useState("");
   const [c, setC] = useState<C | null>(null),
     [teams, setTeams] = useState<T[]>([]),
     [players, setPlayers] = useState<P[]>([]),
@@ -145,6 +148,13 @@ export default function PublicChampionship({ slug }: { slug: string }) {
     cards = [...playerStats]
       .filter((x) => x.yellow || x.red)
       .sort((a, b) => b.red * 3 + b.yellow - (a.red * 3 + a.yellow));
+  const visibleMatches = matches.filter(
+    (m) =>
+      (!teamFilter ||
+        m.home_team_id === teamFilter ||
+        m.away_team_id === teamFilter) &&
+      (!statusFilter || m.status === statusFilter),
+  );
   if (loading) return <div className="public-center">Carregando…</div>;
   if (error || !c)
     return (
@@ -264,8 +274,16 @@ export default function PublicChampionship({ slug }: { slug: string }) {
         </section>
         <article className="public-card">
           <h2>Partidas</h2>
-          {matches.length ? (
-            matches.map((m) => (
+          <MatchFilters
+            teams={teams}
+            team={teamFilter}
+            status={statusFilter}
+            onTeam={setTeamFilter}
+            onStatus={setStatusFilter}
+            count={visibleMatches.length}
+          />
+          {visibleMatches.length ? (
+            visibleMatches.map((m) => (
               <div className="public-match" key={m.id}>
                 <span>
                   <small>
@@ -296,7 +314,11 @@ export default function PublicChampionship({ slug }: { slug: string }) {
               </div>
             ))
           ) : (
-            <p>Nenhuma partida cadastrada.</p>
+            <p>
+              {matches.length
+                ? "Nenhuma partida com esses filtros."
+                : "Nenhuma partida cadastrada."}
+            </p>
           )}
         </article>
       </main>

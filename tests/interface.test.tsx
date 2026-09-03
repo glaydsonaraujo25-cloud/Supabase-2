@@ -76,3 +76,48 @@ it("shows cancelled matches accurately on the public page", async () => {
   expect(screen.getByRole("table").textContent).toContain("Estrela Renovada");
   db.matches.pop();
 });
+
+it("reschedules and cancels a match, then filters the updated list", async () => {
+  const original = { ...db.matches[0] };
+  try {
+    render(<Dashboard />);
+    await screen.findByRole("heading", { name: "Copa da Comunidade" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Partidas", exact: true }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Gerenciar partida" }));
+    const dialog = screen.getByRole("dialog", { name: "Gerenciar partida" });
+    fireEvent.change(within(dialog).getByLabelText("Data e horário"), {
+      target: { value: "2026-10-10T15:30" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Status da partida"), {
+      target: { value: "cancelado" },
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Salvar partida" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(db.matches[0].status).toBe("cancelado");
+    expect(db.matches[0].scheduled_at).toBe(
+      new Date("2026-10-10T15:30").toISOString(),
+    );
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Salvar",
+          exact: true,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    fireEvent.change(screen.getByLabelText("Filtrar por status"), {
+      target: { value: "agendado" },
+    });
+    expect(screen.getByText("Nenhuma partida com esses filtros")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Limpar filtros" }));
+    expect(
+      screen.getByRole("button", { name: "Gerenciar partida" }),
+    ).toBeTruthy();
+  } finally {
+    db.matches[0] = original;
+  }
+});
