@@ -1,3 +1,4 @@
+import { hasGroups } from "./lib/groups";
 import { fetchAll } from "./lib/data";
 import { calculateStandings as leagueStandings } from "./lib/competition";
 import { useModal } from "./lib/useModal";
@@ -13,6 +14,7 @@ type Championship = {
   format: "Pontos corridos" | "Mata-mata" | "Grupos + mata-mata";
 };
 type Team = {
+  group_name?: string | null;
   id: string;
   championship_id: string;
   name: string;
@@ -138,6 +140,22 @@ export default function KnockoutCenter({
     setFeedback("");
     if (bracketMatches.length) {
       setFeedback("A chave já foi criada para este campeonato.");
+      return;
+    }
+    if (busy) return;
+    if (hasGroups(selectedTeams)) {
+      setBusy(true);
+      try {
+        const { error } = await supabase.rpc("generate_group_knockout", {
+          p_championship: championship.id,
+        });
+        if (error) throw error;
+        await load(championship.id);
+      } catch (e) {
+        setFeedback((e as Error).message);
+      } finally {
+        setBusy(false);
+      }
       return;
     }
     let seeded: Team[] = [];
@@ -327,7 +345,9 @@ export default function KnockoutCenter({
                     <h3>Chave ainda não criada</h3>
                     <p>
                       {championship?.format === "Grupos + mata-mata"
-                        ? "A classificação atual será usada como cabeças de chave."
+                        ? hasGroups(selectedTeams)
+                          ? "Avançam os dois primeiros de cada grupo, após todos os confrontos serem finalizados."
+                          : "Este campeonato usa a classificação única anterior. Configure grupos na aba Classificação antes de cadastrar partidas em um novo campeonato."
                         : "Os times serão pareados pelo posicionamento da lista."}
                     </p>
                   </div>

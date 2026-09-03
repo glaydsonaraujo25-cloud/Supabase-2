@@ -1,3 +1,6 @@
+import GroupManager from "./GroupManager";
+import GroupStandings from "./GroupStandings";
+import { hasGroups } from "./lib/groups";
 import StandingsTable from "./StandingsTable";
 import type { FormResult } from "./lib/competition";
 import ChampionshipAgenda from "./ChampionshipAgenda";
@@ -52,6 +55,7 @@ type Championship = {
   updated_at: string;
 };
 type Team = {
+  group_name?: string | null;
   id: string;
   championship_id: string;
   name: string;
@@ -445,7 +449,25 @@ export default function ChampionshipDashboard() {
                   </button>
                 </div>
               ) : (
-                <Standings championship={selected} rows={standings} />
+                <>
+                  {selected?.format === "Grupos + mata-mata" && isOwner && (
+                    <GroupManager
+                      key={selectedId}
+                      championshipId={selectedId}
+                      teams={selectedTeams}
+                      locked={selectedMatches.length > 0}
+                      reload={() => loadData(selectedId)}
+                    />
+                  )}
+                  {hasGroups(selectedTeams) ? (
+                    <GroupStandings
+                      teams={selectedTeams}
+                      matches={selectedMatches}
+                    />
+                  ) : (
+                    <Standings championship={selected} rows={standings} />
+                  )}
+                </>
               ))}
           </>
         )}
@@ -595,12 +617,18 @@ function Overview({
           text={`${matches.filter((m) => m.status === "finalizado").length} finalizadas`}
         />
         <Stat
-          label="Líder"
+          label={hasGroups(teams) ? "Grupos" : "Líder"}
           value={
-            standings[0]?.team.short_name || standings[0]?.team.name || "—"
+            hasGroups(teams)
+              ? new Set(teams.map((t) => t.group_name).filter(Boolean)).size
+              : standings[0]?.team.short_name || standings[0]?.team.name || "—"
           }
           text={
-            standings[0] ? `${standings[0].points} pontos` : "sem resultados"
+            hasGroups(teams)
+              ? "2 classificados por grupo"
+              : standings[0]
+                ? `${standings[0].points} pontos`
+                : "sem resultados"
           }
         />
       </section>
@@ -622,8 +650,15 @@ function Overview({
         </div>
         <div className="panel">
           <p className="eyebrow">CLASSIFICAÇÃO</p>
-          <h3>Top 5</h3>
-          {standings.length ? (
+          <h3>{hasGroups(teams) ? "Classificação por grupo" : "Top 5"}</h3>
+          {hasGroups(teams) ? (
+            <button
+              className="btn secondary"
+              onClick={() => go("classificacao")}
+            >
+              Ver grupos e classificados
+            </button>
+          ) : standings.length ? (
             <div className="ranking-mini">
               {standings.slice(0, 5).map((r, i) => (
                 <div key={r.team.id}>
@@ -1320,6 +1355,14 @@ function Matches({
     e.preventDefault();
     if (championship.format === "Mata-mata")
       return setFeedback("Use Mata-mata no menu.");
+    if (
+      championship.format === "Grupos + mata-mata" &&
+      !hasGroups(teams) &&
+      !matches.length
+    )
+      return setFeedback(
+        "Distribua os times em grupos na aba Classificação antes de criar partidas.",
+      );
     if (home === away) return setFeedback("Selecione times diferentes.");
     const { error } = await supabase.from("matches").insert({
       championship_id: championship.id,
@@ -1337,6 +1380,14 @@ function Matches({
     }
   }
   async function generate() {
+    if (
+      championship.format === "Grupos + mata-mata" &&
+      !hasGroups(teams) &&
+      !matches.length
+    )
+      return setFeedback(
+        "Distribua os times em grupos na aba Classificação antes de gerar rodadas.",
+      );
     if (teams.length < 2) return setFeedback("Cadastre pelo menos 2 times.");
     if (championship.format === "Mata-mata")
       return setFeedback("Use Mata-mata no menu para gerar a chave.");
@@ -1345,6 +1396,20 @@ function Matches({
         "Já existem partidas. A geração automática não duplica a tabela.",
       );
     setBusy(true);
+    if (hasGroups(teams)) {
+      try {
+        const { error } = await supabase.rpc("generate_group_matches", {
+          p_championship: championship.id,
+        });
+        if (error) throw error;
+        await reload();
+      } catch (e) {
+        setFeedback((e as Error).message);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const fixtures = roundRobin(teams.map((t) => t.id)).map((f) => ({
       championship_id: championship.id,
       home_team_id: f.home,

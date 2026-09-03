@@ -1,3 +1,5 @@
+import GroupStandings from "./GroupStandings";
+import { hasGroups } from "./lib/groups";
 import StandingsTable from "./StandingsTable";
 import ChampionshipAgenda from "./ChampionshipAgenda";
 import MatchFilters from "./MatchFilters";
@@ -20,6 +22,7 @@ type C = {
   public_slug: string;
 };
 type T = {
+  group_name?: string | null;
   id: string;
   championship_id: string;
   name: string;
@@ -83,7 +86,7 @@ export default function PublicChampionship({ slug }: { slug: string }) {
         fetchAll(() =>
           supabase
             .from("teams")
-            .select("id,championship_id,name,short_name,city")
+            .select("id,championship_id,name,short_name,city,group_name")
             .eq("championship_id", champ.id)
             .order("name")
             .order("id"),
@@ -201,7 +204,12 @@ export default function PublicChampionship({ slug }: { slug: string }) {
             {c.format === "Mata-mata" && (
               <p>Confira os confrontos e os vencedores abaixo.</p>
             )}
-            {c.format !== "Mata-mata" && <StandingsTable rows={table} />}
+            {c.format !== "Mata-mata" &&
+              (hasGroups(teams) ? (
+                <GroupStandings teams={teams} matches={matches} />
+              ) : (
+                <StandingsTable rows={table} />
+              ))}
           </article>
           <article className="public-card">
             <h2>Times</h2>
