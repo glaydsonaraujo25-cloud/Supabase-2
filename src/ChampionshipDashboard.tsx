@@ -1,4 +1,5 @@
 import PrivateChampionshipResults from "./PrivateChampionshipResults";
+import AuditCenter from "./AuditCenter";
 import PrivateMatchDetails from "./PrivateMatchDetails";
 import GroupManager from "./GroupManager";
 import GroupStandings from "./GroupStandings";
@@ -334,11 +335,14 @@ export default function ChampionshipDashboard() {
                 ["estatisticas", "Estatísticas"],
                 ["compartilhar", "Compartilhar"],
                 ["mata-mata", "Mata-mata"],
+                ["historico", "Histórico"],
               ]
                 .filter(
                   ([id]) =>
                     (isOwner ||
-                      !["participantes", "compartilhar"].includes(id)) &&
+                      !["participantes", "compartilhar", "historico"].includes(
+                        id,
+                      )) &&
                     (id !== "mata-mata" ||
                       selected.format !== "Pontos corridos"),
                 )
@@ -509,6 +513,9 @@ export default function ChampionshipDashboard() {
             void loadData(selectedId);
           }}
         />
+      )}
+      {tool === "historico" && (
+        <AuditCenter championshipId={selectedId} onClose={() => setTool("")} />
       )}
     </div>
   );

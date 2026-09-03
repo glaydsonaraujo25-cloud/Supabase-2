@@ -42,6 +42,7 @@ Execute no SQL Editor, nesta ordem:
 2. `supabase/upgrades/championship_integrity.sql`: permissões e regras de integridade do Bracketly.
 3. `supabase/upgrades/championship_groups.sql`: distribuição de grupos, rodadas e classificação para o mata-mata.
 4. `supabase/upgrades/match_locations.sql`: local e duração prevista das partidas.
+5. `supabase/upgrades/championship_audit.sql`: histórico imutável de alterações por campeonato.
 
 O snapshot foi reconstruído do banco conectado e testado em uma instância PostgreSQL local. Não execute `schema.sql` sobre um banco já existente.
 
@@ -136,3 +137,9 @@ Os avisos de conflito comparam times e locais nos jogos carregados do mesmo camp
 Ao marcar o campeonato como **Finalizado**, a visão geral e a página pública exibem campeão, vice e artilharia. Na liga, o resultado segue os critérios da classificação e exige ao menos um confronto finalizado entre cada par de times. No mata-mata, a final precisa ter vencedor, incluindo pênaltis quando necessários. Partidas ativas com resultados pendentes impedem o anúncio do campeão.
 
 A artilharia conta somente gols atribuídos a jogadores em partidas finalizadas; assistências e jogos cancelados não contam. Todos os líderes empatados aparecem. Sem eventos, a tela informa a ausência de registros; uma falha de carregamento permite tentar novamente. O resumo é calculado a partir dos dados atuais, não é um histórico imutável, e reflete correções ao recarregar.
+
+## Histórico de alterações
+
+O organizador pode abrir **Histórico** no menu de ferramentas para consultar criações, alterações e exclusões de campeonatos, times, jogadores, partidas e eventos. Atualizações exibem os valores anteriores e novos, com filtro por tipo e identificação do autor quando o perfil estiver disponível.
+
+Os registros começam após a instalação deste upgrade e são somente leitura: usuários autenticados não podem inserir, alterar ou excluir entradas. A política RLS restringe cada histórico ao dono do campeonato; visitantes, participantes e páginas públicas não recebem acesso. Códigos de convite, dono, responsável e datas técnicas são removidos dos detalhes antes do armazenamento.

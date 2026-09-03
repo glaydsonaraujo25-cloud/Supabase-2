@@ -17,6 +17,13 @@ try {
   await db.exec(
     await readFile("supabase/upgrades/match_locations.sql", "utf8"),
   );
+  await db.exec(
+    await readFile("supabase/upgrades/championship_audit.sql", "utf8"),
+  );
+  const auditResult = await db.exec(
+    await readFile("supabase/tests/championship_audit.sql", "utf8"),
+  );
+  console.log(auditResult.flatMap((r) => r.rows).filter((r) => r.test_result));
   const groupResult = await db.exec(
     await readFile("supabase/tests/championship_groups.sql", "utf8"),
   );
