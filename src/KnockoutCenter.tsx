@@ -1,3 +1,4 @@
+import PrivateMatchDetails from "./PrivateMatchDetails";
 import { hasGroups } from "./lib/groups";
 import { fetchAll } from "./lib/data";
 import { calculateStandings as leagueStandings } from "./lib/competition";
@@ -21,6 +22,7 @@ type Team = {
   short_name: string | null;
 };
 type Match = {
+  scheduled_at?: string | null;
   id: string;
   championship_id: string;
   home_team_id: string;
@@ -50,6 +52,7 @@ export default function KnockoutCenter({
   championshipId: string;
   onClose: () => void;
 }) {
+  const [details, setDetails] = useState<Match | null>(null);
   const [session, setSession] = useState<Session | null>(null),
     [open, setOpen] = useState(true),
     [championships, setChampionships] = useState<Championship[]>([]),
@@ -269,6 +272,14 @@ export default function KnockoutCenter({
   if (!session) return null;
   return (
     <>
+      {details && (
+        <PrivateMatchDetails
+          key={details.id}
+          match={details}
+          teams={selectedTeams}
+          onClose={() => setDetails(null)}
+        />
+      )}
       {open && (
         <div className="knockout-backdrop" onClick={() => onClose()}>
           <section
@@ -368,6 +379,7 @@ export default function KnockoutCenter({
                               key={m.id}
                               match={m}
                               teams={selectedTeams}
+                              details={() => setDetails(m)}
                               editable={isOwner}
                               onSave={saveResult}
                             />
@@ -386,11 +398,13 @@ export default function KnockoutCenter({
 }
 
 function KnockoutMatch({
+  details,
   match,
   teams,
   editable,
   onSave,
 }: {
+  details: () => void;
   match: Match;
   teams: Team[];
   editable: boolean;
@@ -419,6 +433,9 @@ function KnockoutMatch({
   }
   return (
     <form className="bracket-match" onSubmit={submit}>
+      <button type="button" className="btn secondary small" onClick={details}>
+        Ver detalhes
+      </button>
       <div>
         <span>{teamName(match.home_team_id, teams)}</span>
         {editable ? (

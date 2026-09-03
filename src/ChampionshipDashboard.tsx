@@ -1,3 +1,4 @@
+import PrivateMatchDetails from "./PrivateMatchDetails";
 import GroupManager from "./GroupManager";
 import GroupStandings from "./GroupStandings";
 import { hasGroups } from "./lib/groups";
@@ -1332,6 +1333,7 @@ function Matches({
   isOwner: boolean;
   reload: () => Promise<void>;
 }) {
+  const [details, setDetails] = useState<Match | null>(null);
   const [editing, setEditing] = useState<Match | null>(null);
   const [teamFilter, setTeamFilter] = useState(""),
     [statusFilter, setStatusFilter] = useState("");
@@ -1457,6 +1459,14 @@ function Matches({
   );
   return (
     <div className="stack">
+      {details && (
+        <PrivateMatchDetails
+          key={details.id}
+          match={details}
+          teams={teams}
+          onClose={() => setDetails(null)}
+        />
+      )}
       {editing && (
         <MatchSchedule
           match={editing}
@@ -1619,6 +1629,7 @@ function Matches({
                       home={teamName(m.home_team_id)}
                       away={teamName(m.away_team_id)}
                       editable={isOwner}
+                      details={() => setDetails(m)}
                       manage={() => setEditing(m)}
                       save={saveResult}
                       del={del}
@@ -1633,6 +1644,7 @@ function Matches({
   );
 }
 function MatchRow({
+  details,
   manage,
   match,
   home,
@@ -1641,6 +1653,7 @@ function MatchRow({
   save,
   del,
 }: {
+  details: () => void;
   manage: () => void;
   match: Match;
   home: string;
@@ -1669,6 +1682,9 @@ function MatchRow({
         <strong>
           {home} <span>×</span> {away}
         </strong>
+        <button className="btn secondary small" onClick={details}>
+          Ver detalhes
+        </button>
       </div>
       {editable ? (
         <div className="score">

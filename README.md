@@ -117,3 +117,9 @@ A classificação pública e privada é separada por grupo. Os dois primeiros s�
 Campeonatos existentes não são redistribuídos nem têm resultados apagados. O upgrade acrescenta `teams.group_name`, preserva as políticas RLS e permite leitura pública apenas quando o campeonato já é público. As operações usam funções com permissões do usuário e verificam o organizador.
 
 `npm run test:db` valida tanto a integridade anterior quanto configuração, rodadas, classificação, avanço e permissões dos grupos, sempre com rollback dos dados de teste.
+
+## Detalhes da partida
+
+Use **Ver detalhes** na lista de partidas, nos confrontos do mata-mata ou na página pública. A tela reúne status, rodada/grupo, horário, placar, pênaltis, eventos em ordem de minuto e elencos atuais. Eventos sem minuto aparecem ao final. O elenco cadastrado não representa uma escalação confirmada.
+
+Os registros de gols e assistências continuam separados do lançamento do placar, na central de Estatísticas. A tela de detalhes é de consulta e respeita as permissões já existentes; no painel, os registros são carregados ao abrir, com opção de tentar novamente em caso de falha.

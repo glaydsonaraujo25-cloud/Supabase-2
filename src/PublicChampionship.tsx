@@ -1,3 +1,4 @@
+import MatchDetails from "./MatchDetails";
 import GroupStandings from "./GroupStandings";
 import { hasGroups } from "./lib/groups";
 import StandingsTable from "./StandingsTable";
@@ -61,6 +62,7 @@ type E = {
 };
 
 export default function PublicChampionship({ slug }: { slug: string }) {
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [teamFilter, setTeamFilter] = useState(""),
     [statusFilter, setStatusFilter] = useState("");
   const [c, setC] = useState<C | null>(null),
@@ -133,6 +135,7 @@ export default function PublicChampionship({ slug }: { slug: string }) {
     }
   }
   useEffect(() => {
+    setDetailId(null);
     void load();
   }, [slug]);
   const table = useMemo(
@@ -255,6 +258,16 @@ export default function PublicChampionship({ slug }: { slug: string }) {
             )}
           </article>
         </section>
+        {matches.find((m) => m.id === detailId) && (
+          <MatchDetails
+            key={detailId}
+            match={matches.find((m) => m.id === detailId)!}
+            teams={teams}
+            players={players}
+            events={events}
+            onClose={() => setDetailId(null)}
+          />
+        )}
         <article className="public-card">
           <h2>Partidas</h2>
           <MatchFilters
@@ -294,6 +307,12 @@ export default function PublicChampionship({ slug }: { slug: string }) {
                       : ""}
                   </small>
                 </b>
+                <button
+                  className="btn secondary small"
+                  onClick={() => setDetailId(m.id)}
+                >
+                  Ver detalhes
+                </button>
               </div>
             ))
           ) : (
