@@ -1101,6 +1101,24 @@ function Teams({
     [position, setPosition] = useState(""),
     [playerSearch, setPlayerSearch] = useState(""),
     [feedback, setFeedback] = useState("");
+  const pending = useRef(false);
+  const [saving, setSaving] = useState<"team" | "player" | null>(null);
+  async function submit(kind: "team" | "player", action: () => Promise<void>) {
+    if (pending.current) return;
+    pending.current = true;
+    setSaving(kind);
+    setFeedback("");
+    try {
+      await action();
+    } catch {
+      setFeedback(
+        "Não foi possível confirmar a operação. Atualize o painel antes de tentar novamente.",
+      );
+    } finally {
+      pending.current = false;
+      setSaving(null);
+    }
+  }
   if (!championship)
     return (
       <Empty
@@ -1158,6 +1176,7 @@ function Teams({
   async function addTeam(e: FormEvent) {
     e.preventDefault();
     if (isFull) return setFeedback("O limite de times foi atingido.");
+    if (!name.trim()) return setFeedback("Informe o nome do time.");
     if (teams.some((t) => t.name.toLowerCase() === name.trim().toLowerCase()))
       return setFeedback("Já existe um time com esse nome.");
     const { error } = await supabase.from("teams").insert({
@@ -1210,6 +1229,14 @@ function Teams({
     else await reload();
   }
   async function delPlayer(id: string) {
+    const player = players.find((p) => p.id === id);
+    if (
+      !player ||
+      !confirm(
+        `Excluir o jogador ${player.name}? Esta ação não pode ser desfeita.`,
+      )
+    )
+      return;
     const { error } = await supabase.from("players").delete().eq("id", id);
     if (error) setFeedback(error.message);
     else await reload();
@@ -1264,7 +1291,14 @@ function Teams({
         </p>
       )}
       {canCreate && (
-        <form className="panel team-form" onSubmit={addTeam}>
+        <form
+          className="panel team-form"
+          aria-busy={saving === "team"}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit("team", () => addTeam(e));
+          }}
+        >
           <div>
             <p className="eyebrow">{isOwner ? "NOVO TIME" : "SEU TIME"}</p>
             <h3>
@@ -1281,7 +1315,7 @@ function Teams({
             Nome
             <input
               value={name}
-              disabled={isFull}
+              disabled={isFull || saving !== null}
               onChange={(e) => setName(e.target.value)}
               required
             />
@@ -1290,7 +1324,7 @@ function Teams({
             Sigla
             <input
               value={short}
-              disabled={isFull}
+              disabled={isFull || saving !== null}
               maxLength={5}
               onChange={(e) => setShort(e.target.value)}
               placeholder="ABC"
@@ -1300,17 +1334,17 @@ function Teams({
             Cidade
             <input
               value={city}
-              disabled={isFull}
+              disabled={isFull || saving !== null}
               onChange={(e) => setCity(e.target.value)}
               placeholder="Opcional"
             />
           </label>
           <button
             className="btn primary"
-            disabled={isFull}
+            disabled={isFull || saving !== null}
             aria-describedby={isFull ? "team-capacity-notice" : undefined}
           >
-            <Plus size={16} /> Adicionar
+            <Plus size={16} /> {saving === "team" ? "Salvando..." : "Adicionar"}
           </button>
         </form>
       )}
@@ -1320,7 +1354,11 @@ function Teams({
           para consulta.
         </div>
       )}
-      {feedback && <div className="notice">{feedback}</div>}
+      {feedback && (
+        <div className="notice" role="status">
+          {feedback}
+        </div>
+      )}
       <div className="team-list">
         {teams.map((t) => {
           const roster = players.filter((p) => p.team_id === t.id),
@@ -1344,6 +1382,7 @@ function Teams({
                 <button
                   className="team-main"
                   aria-expanded={expanded}
+                  disabled={saving !== null}
                   onClick={() => {
                     setOpen(expanded ? "" : t.id);
                     setPlayerSearch("");
@@ -1435,11 +1474,16 @@ function Teams({
                   {canManage && (
                     <form
                       className="player-form"
-                      onSubmit={(e) => void addPlayer(e, t.id)}
+                      aria-busy={saving === "player"}
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void submit("player", () => addPlayer(e, t.id));
+                      }}
                     >
                       <input
                         value={pname}
                         aria-label="Nome do jogador"
+                        disabled={saving !== null}
                         onChange={(e) => setPname(e.target.value)}
                         placeholder="Nome do jogador"
                         required
@@ -1450,17 +1494,23 @@ function Teams({
                         max={99}
                         value={shirt}
                         aria-label="Número da camisa"
+                        disabled={saving !== null}
                         onChange={(e) => setShirt(e.target.value)}
                         placeholder="Nº"
                       />
                       <input
                         value={position}
                         aria-label="Posição"
+                        disabled={saving !== null}
                         onChange={(e) => setPosition(e.target.value)}
                         placeholder="Posição"
                       />
-                      <button className="btn secondary">
-                        <UserPlus size={16} /> Adicionar
+                      <button
+                        className="btn secondary"
+                        disabled={saving !== null}
+                      >
+                        <UserPlus size={16} />{" "}
+                        {saving === "player" ? "Salvando..." : "Adicionar"}
                       </button>
                     </form>
                   )}
