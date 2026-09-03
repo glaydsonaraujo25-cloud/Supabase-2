@@ -1,3 +1,4 @@
+import ChampionshipAgenda from "./ChampionshipAgenda";
 import MatchFilters from "./MatchFilters";
 import { fetchAll } from "./lib/data";
 import {
@@ -185,6 +186,12 @@ export default function PublicChampionship({ slug }: { slug: string }) {
             {c.sport} · {c.format}
           </p>
         </section>
+        <ChampionshipAgenda
+          key={c.id}
+          championship={c}
+          teams={teams}
+          matches={matches}
+        />
         <section className="public-columns">
           <article className="public-card">
             <h2>

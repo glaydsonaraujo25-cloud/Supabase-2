@@ -1,3 +1,4 @@
+import ChampionshipAgenda from "./ChampionshipAgenda";
 import MatchSchedule from "./MatchSchedule";
 import MatchFilters from "./MatchFilters";
 import { matchStatus } from "./lib/competition";
@@ -599,6 +600,12 @@ function Overview({
           }
         />
       </section>
+      <ChampionshipAgenda
+        key={championship.id}
+        championship={championship}
+        teams={teams}
+        matches={matches}
+      />
       <section className="grid-two">
         <div className="panel">
           <p className="eyebrow">SEU PAPEL</p>

@@ -90,3 +90,9 @@ A proteção de senhas vazadas é uma configuração separada do Supabase Auth e
 Na aba **Partidas**, use **Gerenciar partida** para mudar data, horário e status de jogos da fase classificatória. A data usa o fuso horário do dispositivo e é armazenada em UTC. Ao cancelar ou reabrir um resultado finalizado, o placar fica preservado, mas deixa de contar na classificação até nova finalização. Partidas canceladas precisam ser reabertas antes de lançar um resultado.
 
 Os filtros por time e status estão disponíveis na aba Partidas e na página pública. Eles alteram somente a lista de jogos, sem afetar o cálculo da classificação. Jogos de fases anteriores continuam protegidos quando já existe uma eliminatória dependente. O mata-mata mantém sua central específica para resultados.
+
+## Agenda e calendário
+
+A visão geral e a página pública mostram próximas partidas, jogos em andamento e partidas que aguardam horário ou atualização. O filtro por time também seleciona os jogos do arquivo **Baixar agenda (.ics)**. A lista mostra cinco jogos por vez, mas a exportação inclui todos os confrontos futuros agendados da seleção, inclusive eliminatórias.
+
+O arquivo usa UTC para preservar o horário ao importar em outro fuso. Não inventa duração das partidas e não inclui jogos cancelados, finalizados, passados ou sem horário. A importação é manual e não estabelece sincronização: confirme alterações no Bracketly e atualize seu calendário. Formato baseado no [padrão iCalendar (RFC 5545)](https://www.rfc-editor.org/rfc/rfc5545).
