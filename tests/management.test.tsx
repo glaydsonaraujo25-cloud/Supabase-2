@@ -3,12 +3,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import NewEdition from "../src/NewEdition";
 import RegulationsCenter from "../src/RegulationsCenter";
 import ChampionshipReport from "../src/ChampionshipReport";
+import AdmissionsCenter from "../src/AdmissionsCenter";
 
 const db = vi.hoisted(() => ({
   rpc: vi.fn(),
   update: vi.fn(),
   single: vi.fn(),
+  fetchAll: vi.fn(),
 }));
+vi.mock("../src/lib/data", () => ({ fetchAll: db.fetchAll }));
 vi.mock("../src/lib/supabase", () => ({
   supabase: {
     rpc: db.rpc,
@@ -32,9 +35,55 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.rpc.mockResolvedValue({ data: "new-id", error: null });
   db.single.mockResolvedValue({ error: null });
+  db.fetchAll.mockResolvedValue([]);
 });
 
 describe("Gestão do campeonato", () => {
+  it("limpa erro de inscrições após atualizar com sucesso", async () => {
+    db.fetchAll.mockRejectedValueOnce(new Error("Falha temporária"));
+    render(
+      <AdmissionsCenter
+        championship={championship}
+        isOwner
+        onClose={() => {}}
+        reload={async () => {}}
+      />,
+    );
+    await screen.findByText("Falha temporária");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Atualizar solicitações" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Falha temporária")).toBeNull(),
+    );
+    expect(db.fetchAll).toHaveBeenCalledTimes(2);
+    await screen.findByText("Nenhuma solicitação registrada.");
+  });
+  it("não duplica a edição quando somente a atualização do painel falha", async () => {
+    const created = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Falha ao atualizar painel"))
+      .mockResolvedValue(undefined);
+    const close = vi.fn();
+    render(
+      <NewEdition
+        championship={championship}
+        onCreated={created}
+        onClose={close}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Criar nova edição" }));
+    await screen.findByText("Falha ao atualizar painel");
+    expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(
+      true,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Abrir edição criada" }),
+    );
+    await waitFor(() => expect(close).toHaveBeenCalledOnce());
+    expect(db.rpc).toHaveBeenCalledOnce();
+    expect(created).toHaveBeenNthCalledWith(2, "new-id");
+  });
   it("cria uma edição sem copiar times quando solicitado", async () => {
     const created = vi.fn().mockResolvedValue(undefined),
       close = vi.fn();

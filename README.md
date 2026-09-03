@@ -50,7 +50,8 @@ Execute no SQL Editor, nesta ordem:
 
 - Deploy do pacote de gestão confirmado pelo status do GitHub/Vercel; tela de acesso verificada no site publicado.
 - `test:db` verifica os índices novos, a remoção das duplicatas e a reaplicação, além dos fluxos de organizador, participante e visitante em transações de teste.
-- A revisão visual das telas internas, celular e paginação real do PDF ainda depende de acesso autenticado e de uma sessão de teste. Não confundir testes de componentes com validação visual.
+- Revisão autenticada: painel, inscrições, regulamento, abertura/fechamento do relatório e formulário de nova edição conferidos no site, sem gravação de dados. A revisão em viewport de celular e a paginação real do PDF continuam pendentes; a visualização do relatório em tela não equivale à validação do PDF impresso.
+- Confiabilidade: após criar uma edição com sucesso, uma falha ao atualizar o painel permite tentar abrir a mesma edição sem repetir a criação durante essa sessão do formulário. Erros antigos de inscrições são limpos ao atualizar. Testes cobrem esses casos e a navegação circular por teclado incluindo campos de texto multilinha.
 - A proteção nativa contra senhas vazadas exige Supabase Pro ou superior ([documentação](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)). Não foi ativada: a conexão disponível não oferece edição das configurações de Auth, e nenhuma mudança de plano foi autorizada.
 - Índices sem uso recente foram preservados: ausência de uso em um banco pequeno não comprova que um índice é desnecessário. Políticas permissivas sobrepostas também foram preservadas para não alterar o acesso durante uma otimização de índices.
 

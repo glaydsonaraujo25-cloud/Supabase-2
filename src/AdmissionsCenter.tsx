@@ -40,6 +40,7 @@ export default function AdmissionsCenter({
   async function load() {
     const current = ++version.current;
     setLoading(true);
+    setError("");
     try {
       const rows = await fetchAll(() =>
         supabase

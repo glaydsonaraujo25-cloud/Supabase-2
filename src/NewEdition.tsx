@@ -14,6 +14,7 @@ export default function NewEdition({
       `${championship.name} — Nova edição`.slice(0, 100),
     ),
     [copy, setCopy] = useState(true),
+    [createdId, setCreatedId] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
@@ -25,16 +26,25 @@ export default function NewEdition({
           setBusy(true);
           setError("");
           try {
-            const { data, error } = await supabase.rpc(
-              "create_championship_edition",
-              {
-                p_source: championship.id,
-                p_name: name.trim(),
-                p_copy_teams: copy,
-              },
-            );
-            if (error) throw error;
-            await onCreated(data);
+            let targetId = createdId;
+            if (!targetId) {
+              const { data, error } = await supabase.rpc(
+                "create_championship_edition",
+                {
+                  p_source: championship.id,
+                  p_name: name.trim(),
+                  p_copy_teams: copy,
+                },
+              );
+              if (error) throw error;
+              targetId = data;
+              setCreatedId(targetId);
+            }
+            if (!targetId)
+              throw new Error(
+                "A criação não retornou o identificador da edição.",
+              );
+            await onCreated(targetId);
             onClose();
           } catch (e) {
             setError((e as Error).message);
@@ -55,7 +65,7 @@ export default function NewEdition({
             minLength={3}
             maxLength={100}
             required
-            disabled={busy}
+            disabled={busy || !!createdId}
           />
         </label>
         <label className="checkbox-line">
@@ -63,7 +73,7 @@ export default function NewEdition({
             type="checkbox"
             checked={copy}
             onChange={(e) => setCopy(e.target.checked)}
-            disabled={busy}
+            disabled={busy || !!createdId}
           />
           Copiar nomes, siglas e cidades dos times
         </label>
@@ -73,8 +83,19 @@ export default function NewEdition({
           copiados.
         </p>
         {error && <p role="alert">{error}</p>}
+        {createdId && (
+          <p role="status">
+            A edição já foi criada. Tente abrir novamente sem criar outra cópia.
+          </p>
+        )}
         <button className="btn primary" disabled={busy}>
-          {busy ? "Criando…" : "Criar nova edição"}
+          {busy
+            ? createdId
+              ? "Abrindo…"
+              : "Criando…"
+            : createdId
+              ? "Abrir edição criada"
+              : "Criar nova edição"}
         </button>
       </form>
     </ToolDialog>

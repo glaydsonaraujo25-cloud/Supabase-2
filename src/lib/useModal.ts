@@ -8,7 +8,7 @@ export function useModal(onClose: () => void, ready = true) {
     const focusable = () =>
       Array.from(
         root.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), select:not(:disabled), [href], [tabindex="0"]',
+          'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [href], [tabindex="0"]',
         ),
       );
     focusable()[0]?.focus();
