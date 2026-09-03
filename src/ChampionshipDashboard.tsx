@@ -1113,7 +1113,8 @@ function Teams({
       />
     );
   const myTeam = teams.find((t) => t.manager_user_id === userId),
-    canCreate = isOwner || (!myTeam && !championship.requires_team_approval);
+    canCreate = isOwner || (!myTeam && !championship.requires_team_approval),
+    isFull = teams.length >= championship.max_teams;
   async function edit(values: Record<string, string>) {
     if (!editing) return;
     const data =
@@ -1140,8 +1141,7 @@ function Teams({
   }
   async function addTeam(e: FormEvent) {
     e.preventDefault();
-    if (teams.length >= championship.max_teams)
-      return setFeedback("O limite de times foi atingido.");
+    if (isFull) return setFeedback("O limite de times foi atingido.");
     if (teams.some((t) => t.name.toLowerCase() === name.trim().toLowerCase()))
       return setFeedback("Já existe um time com esse nome.");
     const { error } = await supabase.from("teams").insert({
@@ -1245,11 +1245,18 @@ function Teams({
             <h3>
               {teams.length}/{championship.max_teams} cadastrados
             </h3>
+            {isFull && (
+              <p className="notice" role="status" id="team-capacity-notice">
+                Vagas esgotadas. O limite de times deste campeonato foi
+                atingido.
+              </p>
+            )}
           </div>
           <label>
             Nome
             <input
               value={name}
+              disabled={isFull}
               onChange={(e) => setName(e.target.value)}
               required
             />
@@ -1258,6 +1265,7 @@ function Teams({
             Sigla
             <input
               value={short}
+              disabled={isFull}
               maxLength={5}
               onChange={(e) => setShort(e.target.value)}
               placeholder="ABC"
@@ -1267,11 +1275,16 @@ function Teams({
             Cidade
             <input
               value={city}
+              disabled={isFull}
               onChange={(e) => setCity(e.target.value)}
               placeholder="Opcional"
             />
           </label>
-          <button className="btn primary">
+          <button
+            className="btn primary"
+            disabled={isFull}
+            aria-describedby={isFull ? "team-capacity-notice" : undefined}
+          >
             <Plus size={16} /> Adicionar
           </button>
         </form>
